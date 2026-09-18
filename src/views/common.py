@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import colorsys
 import hashlib
+import html
 import json
 import re
 from datetime import datetime
@@ -18,7 +19,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src import theme
+from src import grading, theme
 from src.common import load_config
 
 GRADE_KR = {"High": "주의", "Medium": "관찰", "Low": "안정"}
@@ -280,12 +281,12 @@ def brand_mark_html(brand_name: str, size: int = 64) -> str:
              f"flex:0 0 {size}px;box-sizing:border-box;")
     if url:
         return (f"<div class='kb-mark' style='{style}padding:{pad}px'>"
-                f"<img src='{url}' alt='{brand_name}'/></div>")
+                f"<img src='{url}' alt='{esc(brand_name)}'/></div>")
     c1, c2, fg = _mark_colors(brand_name)
     return (f"<div class='kb-mark' style='{style}"
             f"background:linear-gradient(150deg,{c1} 0%,{c2} 100%)'>"
             f"<span class='letter' style='color:{fg};font-size:{int(size * 0.34)}px'>"
-            f"{_mark_label(brand_name)}</span></div>")
+            f"{esc(_mark_label(brand_name))}</span></div>")
 
 
 # ---------------------------------------------------------------------------
@@ -494,26 +495,60 @@ def grade_bands(m: float) -> dict:
 
 @st.cache_data(show_spinner=False)
 def grade_bounds(m: float) -> dict:
-    """등급 컷을 **실제 확률 경계**로 환산한다.
+    """등급 경계(%) — 점수표가 **실제로 등급을 매긴 그 경계**를 돌려준다.
 
-    등급 규칙 자체는 순위 백분위(상위 10% = 주의)다. 그런데 화면에서 "어느 구간이면
-    어떤 마크가 붙는가"를 물으면, 사용자가 기대하는 답은 순위가 아니라 **퍼센트 경계**다.
-    그래서 이번 산출물에서 그 경계가 실제로 몇 %인지 계산해 함께 보여준다.
-    (두 표기를 나란히 두어야 '상위 10%' 라는 상대 기준도 숨기지 않는다.)
+    ⚠️ 예전에는 여기서 config 의 순위 백분위(상위 10%·30%)로 경계를 **다시 계산**했다.
+       그런데 실제 등급은 `grade_bands.json` 의 고정 확률 경계(4.5%·16.0%)로 매겨진다
+       (src/score.py). 두 체계가 섞여, 게이지 색은 15.7%·31.4% 기준으로 칠해지고
+       등급 칩은 4.5%·16.0% 기준으로 붙었다 — 1,442개 중 786개 브랜드가 **등급과 다른
+       색**으로 보였고, 상세 요약문은 "주의 경계는 31.4%"라고 목록 범례와 정반대로
+       말했다. 화면끼리 숫자가 어긋나면 심사역은 나머지 설명도 믿지 않는다.
+       → 공표 밴드가 있으면 그 경계만 쓴다. 밴드가 없을 때만(구버전 산출물) 순위
+         백분위로 물러서고, 그 사실을 `basis` 로 드러낸다.
     """
     df, _ = load_scores()
     if df is None or df.empty:
         return {}
+    p = pd.to_numeric(df["deterioration_1y"], errors="coerce").dropna()
+    out = {"min": float(p.min()) * 100, "max": float(p.max()) * 100,
+           "counts": {k: int(v) for k, v in df["risk_grade"].value_counts().items()}}
+    cuts = grade_bands(_mtime(out_dir() / "grade_bands.json")).get("cuts") or []
+    if len(cuts) == 2:
+        out.update({"basis": "fixed", "medium_cut": float(cuts[0]) * 100,
+                    "high_cut": float(cuts[1]) * 100,
+                    "high_share": float((df["risk_grade"] == "High").mean())})
+        return out
     g = (cfg().get("portfolio") or {}).get("risk_grades") or {}
     hi, mid = float(g.get("high", 0.90)), float(g.get("medium", 0.70))
-    p = pd.to_numeric(df["deterioration_1y"], errors="coerce").dropna()
-    return {
-        "high_pct": hi, "medium_pct": mid,
-        "high_cut": float(p.quantile(hi)) * 100,
-        "medium_cut": float(p.quantile(mid)) * 100,
-        "min": float(p.min()) * 100, "max": float(p.max()) * 100,
-        "counts": {k: int(v) for k, v in df["risk_grade"].value_counts().items()},
-    }
+    out.update({"basis": "rank", "high_pct": hi, "medium_pct": mid,
+                "high_cut": float(p.quantile(hi)) * 100,
+                "medium_cut": float(p.quantile(mid)) * 100})
+    return out
+
+
+def risk_pct(p) -> float | None:
+    """화면에 적을 브랜드 리스크(%) — 반올림이 등급 경계를 넘지 않게 한다.
+
+    ⚠️ 점수는 경계 바로 아래(예: 15.97%)로 잘려 관찰 등급을 받는데, 소수 첫째 자리로
+       반올림하면 **"16.0% · 관찰"** 로 찍힌다(실측 51개 브랜드). 16.0%는 주의 경계라
+       숫자와 등급이 서로 모순돼 보인다. 경계 아래 값이 반올림으로 경계에 닿으면
+       내림으로 적는다 — 그 외의 값은 평소처럼 반올림한다.
+    """
+    c = grading.cuts(out_dir())
+    if c is None:                            # 구버전 산출물 — 순위 경계로 물러선다
+        b = grade_bounds(_mtime(out_dir() / "scores_latest.csv"))
+        if b.get("medium_cut") is not None:
+            c = (b["medium_cut"] / 100, b["high_cut"] / 100)
+    return grading.display_pct(p, c)
+
+
+def esc(s) -> str:
+    """HTML 에 끼워 넣을 문자열 이스케이프.
+
+    ⚠️ 브랜드명 "꿀스커피GGUL'S COFFEE" 의 작은따옴표가 `alt='...'` 속성을 끊어
+       로고 타일이 깨졌다. 브랜드명·뉴스 본문처럼 데이터에서 오는 글자는 전부 여기를 거친다.
+    """
+    return html.escape("" if s is None else str(s), quote=True)
 
 
 # 부문별 진단 — 반증에서 **성립이 확인된 3부문만** 쓴다.
@@ -758,6 +793,47 @@ def watch_rates(m: float) -> dict:
     return out
 
 
+# 브랜드 상태의 **화면 이름**. 데이터 값('요주의')은 파이프라인·문서와 맞물려 있어 그대로 두고
+# 화면에서만 바꿔 부른다.
+# ⚠️ '요주의'는 은행 자산건전성 분류(정상·요주의·고정·회수의문·추정손실)의 공식 용어다.
+#    브랜드 공시 상태에 같은 이름을 붙이면 여신 실무자는 "이 브랜드 여신이 요주의로
+#    분류됐다"로 읽는다. 뜻(올해 공시에 이미 악화 사건이 나타남)대로 부른다.
+STATE_LABEL = {"요주의": "악화 발생", "건전": "건전", "평가불가": "평가불가"}
+
+
+def state_label(state, n_events=None) -> str:
+    s = str(state or "")
+    name = STATE_LABEL.get(s, s or "-")
+    k = pd.to_numeric(pd.Series([n_events]), errors="coerce").iloc[0]
+    return f"{name} {int(k)}건" if s == "요주의" and pd.notna(k) else name
+
+
+def _watch_hit(row) -> dict | None:
+    """악화 발생 브랜드면 같은 사건수 과거 브랜드의 재발동 실현율. 아니면 None."""
+    return grading.watch_hit(row, grading.watch_rates(out_dir()))
+
+
+def prioritize(view: pd.DataFrame) -> pd.DataFrame:
+    """점검 우선순위 = 1년 내 악화 위험 × 가맹점 수 (규칙은 src/grading.py).
+
+    ⚠️ 목록 화면의 '지금 봐야 할 브랜드'는 예전에 확률×점포수로, 점검 큐는 재발동률을
+       반영한 별도 함수로 줄세웠다. 두 화면의 상위 8개 중 3개만 겹쳤다 — "봐야 할
+       브랜드"가 화면마다 달랐던 셈이다. 이제 두 화면(과 상담)이 같은 함수를 쓴다.
+    """
+    return grading.prioritize(view, grading.watch_rates(out_dir()))
+
+
+def risk_basis_label(row) -> str:
+    """카드에 띄울 위험도 문구 — 근거가 다르면 이름도 달라야 한다."""
+    hit = _watch_hit(row)
+    if hit:
+        k = int(pd.to_numeric(pd.Series([row.get("n_events_at_t")]), errors="coerce").iloc[0])
+        return (f"악화 사건 {k}건 · <b>같은 조건 브랜드의 다음 해 재발동률 "
+                f"{hit['rate'] * 100:.1f}%</b>")
+    shown = risk_pct(row.get("deterioration_1y"))
+    return f"{RISK_LABEL} {shown:.1f}%" if shown is not None else RISK_LABEL
+
+
 def population_note(row) -> str:
     """이 브랜드의 확률이 **모델이 검증된 구간에서 나온 것인지** 밝힌다.
 
@@ -795,7 +871,7 @@ def population_note(row) -> str:
         return (f"<div style='margin-top:8px;padding:7px 10px;border-radius:{theme.RADIUS_MD};"
                 f"background:{theme.WARN_SOFT};border:1px solid #F0DFB8;font-size:{theme.FS_SM};"
                 f"color:{theme.TEXT};line-height:1.5'>"
-                f"<b>요주의</b> — 올해 공시에 이미 악화 사건이 발동했습니다. 이 구간은 "
+                f"<b>{STATE_LABEL['요주의']}</b> — 올해 공시에 이미 악화 사건이 나타났습니다. 이 구간은 "
                 f"학습·평가 표본에 포함되지 않아 <b>위 확률값에는 성능 근거가 없습니다.</b>"
                 f"{ev}"
                 f"<div style='margin-top:6px;color:{theme.TEXT_SUB}'>이 실현율은 모형이 아니라 "
@@ -828,9 +904,10 @@ def signal_html(grade: str, deterioration_1y: float | None = None, *, size: int 
     label = (f"<div style='font-size:{theme.FS_MD};font-weight:700;color:{theme.GRADE_COLOR[on]};"
              f"margin-top:6px;letter-spacing:-.01em'>{theme.GRADE_KR[on]}</div>")
     val = ""
-    if show_value and deterioration_1y is not None and pd.notna(deterioration_1y):
+    shown = risk_pct(deterioration_1y) if show_value and deterioration_1y is not None else None
+    if shown is not None:
         val = (f"<div style='font-size:{theme.FS_XS};color:{theme.TEXT_MUTED};margin-top:1px'>"
-               f"{RISK_LABEL} {float(deterioration_1y) * 100:.1f}%</div>")
+               f"{RISK_LABEL} {shown:.1f}%</div>")
     return (f"<div style='display:inline-flex;flex-direction:column;align-items:center'>"
             f"<div style='display:flex;gap:7px;align-items:center;padding:7px 10px;"
             f"border-radius:{theme.RADIUS_PILL};background:{theme.SURFACE};"
@@ -923,10 +1000,11 @@ def risk_gauge(deterioration_1y: float, rank_pct: float | None = None) -> go.Fig
     mid = b.get("medium_cut", 10.0)
     color = (theme.DANGER_FILL if v >= hi else
              theme.WARN_FILL if v >= mid else theme.SAFE_FILL)
+    shown = risk_pct(deterioration_1y)
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
-        value=v,
-        number={"suffix": "%", "font": {"size": 34, "color": theme.INK}},
+        value=shown if shown is not None else v,
+        number={"suffix": "%", "valueformat": ".1f", "font": {"size": 34, "color": theme.INK}},
         gauge={
             "axis": {"range": [0, 100], "tickwidth": 0, "dtick": 25,
                      "ticksuffix": "%",

@@ -40,7 +40,7 @@ _STEPS = (
      "나눠 세 등급을 줍니다. 구간은 순위가 아니라 확률 기준이라, 업계 전체가 나빠지면 "
      "낮은 등급이 늘어납니다."),
     ("4", "왜 그런지 문장으로 설명한다",
-     "숫자만 주면 쓸 수 없습니다. 34가지 점검 규칙이 그 브랜드의 실제 수치로 소견을 씁니다 — "
+     "숫자만 주면 쓸 수 없습니다. {n_rules}가지 점검 규칙이 그 브랜드의 실제 수치로 소견을 씁니다 — "
      "'계약을 끝내는 가맹점이 많습니다(82개, 58.6%)' 처럼요."),
 )
 
@@ -78,7 +78,11 @@ def render() -> None:
 
     st.write("")
     st.markdown("### 어떻게 평가하는가")
+    # 규칙 수는 박아 두지 않고 규칙 엔진에서 센다 — 규칙을 더하면 화면이 따라온다.
+    from src.diagnosis import MULTI_RULES, RULES
+    n_rules = len(RULES) + len(MULTI_RULES)
     for no, title, body in _STEPS:
+        body = body.replace("{n_rules}", str(n_rules))
         with st.container(border=True):
             st.markdown(
                 f"<div style='display:flex;gap:14px;align-items:flex-start'>"
@@ -97,7 +101,7 @@ def render() -> None:
     if bands.get("pooled"):
         st.markdown(C.grade_legend_html({}), unsafe_allow_html=True)
     st.info("**등급 옆의 '상태'를 함께 보십시오.** 같은 FS3 라도 '건전'이면 아직 "
-            "악화 신호가 없는데 모델이 위험을 예측한 것이고, '요주의'면 이미 공시에 "
+            "악화 신호가 없는데 모델이 위험을 예측한 것이고, '악화 발생'이면 이미 공시에 "
             "악화가 나타난 브랜드입니다. 뒤쪽은 모델의 성능 근거가 없으니 확률값보다 "
             "**진단 소견**을 보고 판단하셔야 합니다.")
 
@@ -259,7 +263,7 @@ def _validation_block() -> None:
             f"- ECE {cal.get('ece', 0):.4f} · 예측 평균 {mp:.2f}% vs 실제 {ob:.2f}%\n"
             f"- 등급 이행행렬 {s.get('transition_pairs', 0)}개 코호트 · "
             f"평균 이탈률 {s.get('mean_exit_rate', 0) * 100:.1f}%")
-        st.caption("산출 코드는 src/validate.py, 원본은 outputs/validation/summary.json 입니다. "
+        st.caption("산출 코드는 src/validation.py, 원본은 outputs/validation/summary.json 입니다. "
                    "방법과 전제는 docs/METHODOLOGY.md · docs/MODEL_USE_SPEC.md 에 있습니다.")
 
 

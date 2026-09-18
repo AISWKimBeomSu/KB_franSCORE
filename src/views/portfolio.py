@@ -40,6 +40,31 @@ def _adj() -> dict:
     return st.session_state[_ADJ]
 
 
+def _align_latest(pf: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """포트폴리오의 위험도·등급을 **FRANSCORE 와 같은 최신 점수표**로 맞춘다.
+
+    ⚠️ 파이프라인의 포트폴리오 산출물은 백테스트 코호트(test 연도 예측)와 60개 안에서의
+       순위 등급으로 만들어진다 — 방법론 검증용으로는 맞지만 업무 화면으로는 어긋났다.
+       60개 중 23개 브랜드가 FRANSCORE 와 등급이 달랐고(예: 한 브랜드가 목록에서는 27.4%
+       주의, 여기서는 4.9% 안정), 새로 추가한 행만 최신 점수를 써서 한 표에 두 기준이
+       섞였다. 익스포저(창업비용 기반 추정)는 그대로 두고 **위험도·등급만** 최신 점수로
+       바꾼다. 최신 점수표에 없는 브랜드는 산출물 값을 유지한다.
+    반환: (정렬된 표, 최신 점수로 바뀐 행 수)
+    """
+    scores, _ = C.load_scores()
+    out = pf.copy()
+    out["brand_id"] = out["brand_id"].astype(str)
+    if scores is None or scores.empty:
+        return out, 0
+    s = scores[["brand_id", "deterioration_1y", "risk_grade"]].copy()
+    s["brand_id"] = s["brand_id"].astype(str)
+    s = s.drop_duplicates("brand_id").set_index("brand_id")
+    hit = out["brand_id"].isin(s.index)
+    out.loc[hit, "deterioration_1y"] = out.loc[hit, "brand_id"].map(s["deterioration_1y"])
+    out.loc[hit, "risk_grade"] = out.loc[hit, "brand_id"].map(s["risk_grade"])
+    return out, int(hit.sum())
+
+
 def render() -> None:
     pf, summary = C.load_portfolio()
     if pf is None:
@@ -48,11 +73,12 @@ def render() -> None:
     cfg = C.cfg()
     pcfg = cfg["portfolio"]
     basis = ((summary.get("assumptions") or {}).get("exposure") or {}).get("basis", "")
+    pf, n_aligned = _align_latest(pf)
 
     theme.page_header(
         "여신 포트폴리오",
-        "브랜드별 여신 쏠림과 예상손실입니다. 아래에서 실행·회수를 입력하면 "
-        "모든 지표가 즉시 다시 계산됩니다.",
+        "브랜드별 여신 쏠림과 대리 예상손실입니다. 아래에서 실행·회수를 입력하면 "
+        "총여신·집중도·대리 예상손실이 즉시 다시 계산됩니다.",
         eyebrow="여신관리")
 
     adj = _adj()
@@ -81,6 +107,10 @@ def render() -> None:
             f"→ **금액 자체가 아니라 '구조'를 보십시오** — 어느 브랜드에 쏠렸는지, "
             f"신규 실행이 집중도를 얼마나 움직이는지가 이 화면의 쓸모입니다. "
             f"행내 여신 잔액을 연결하면 같은 화면이 그대로 실측 기준으로 바뀝니다.")
+    st.caption(f"위험도·등급은 FRANSCORE 와 같은 **{C.scored_year()}년 공시 점수**입니다"
+               f"(포트폴리오 {n_aligned}/{len(pf)}개 브랜드). 대리 예상손실 = 여신 × 브랜드 리스크 "
+               "× 손실률(LGD) — 브랜드 리스크는 차주의 부도확률(PD)이 아니라 브랜드 공시 지표의 "
+               "구조악화 확률이라, 이 금액은 충당금·규제자본 산출에 쓰지 않습니다.")
 
     port = _recompute(base, pcfg)
     _kpis(port, summary, adj)
@@ -189,7 +219,9 @@ def _kpis(port: pd.DataFrame, summary: dict, adj: dict) -> None:
     k2.metric("쏠림 정도 (HHI)", f"{hhi:.4f}",
               help="Σ(브랜드 비중)². 0에 가까울수록 고르게 분산, 1에 가까울수록 한 곳에 집중.")
     k3.metric("상위 10 집중도", f"{top10 * 100:.1f}%")
-    k4.metric(f"예상손실 (LGD {int(mid[3:])}%)", f"{_eok(el):,.1f} 억")
+    k4.metric(f"대리 예상손실 (LGD {int(mid[3:])}%)", f"{_eok(el):,.1f} 억",
+              help="여신 × 브랜드 리스크 × LGD. 브랜드 리스크는 부도확률(PD)이 아니라 브랜드 "
+                   "구조악화 확률이므로, 이 값은 쏠림의 상대 크기를 보는 대리 지표입니다.")
     k5.metric("스트레스 시", f"{_eok(stress):,.1f} 억",
               delta=f"+{_eok(stress - el):,.1f} 억", delta_color="inverse")
     del base_total
@@ -280,7 +312,7 @@ def _concentration(port: pd.DataFrame) -> None:
                           colors=colors, unit="억원")
         fig.update_layout(height=max(240, 26 * len(top)))
         theme.plot(fig, key="pf_top")
-        st.caption("막대 색 = 위험등급 (빨강 주의 · 주황 관찰 · 초록 양호)")
+        st.caption("막대 색 = 위험등급 (빨강 주의 · 주황 관찰 · 초록 안정)")
     with c2:
         st.markdown("##### 위험 × 여신")
         fig = go.Figure()
@@ -320,21 +352,22 @@ def _expected_loss(port: pd.DataFrame, pcfg: dict) -> None:
     fig.add_trace(go.Bar(x=labels, y=strs, name="스트레스",
                          marker_color=theme.DANGER_FILL,
                          hovertemplate="%{x}<br>스트레스 <b>%{y:,.1f}</b>억원<extra></extra>"))
-    fig.update_layout(barmode="group", height=300, yaxis_title="예상손실 (억원)",
+    fig.update_layout(barmode="group", height=300, yaxis_title="대리 예상손실 (억원)",
                       margin={"l": 4, "r": 4, "t": 30, "b": 20})
     theme.plot(fig, key="pf_el")
     st.caption(
-        f"예상손실 = 여신 × 브랜드 리스크 × 손실률(LGD). "
+        f"대리 예상손실 = 여신 × 브랜드 리스크 × 손실률(LGD). "
         f"스트레스는 위험 상위 {float(pcfg['stress_top_pct']) * 100:.0f}% 브랜드의 "
         f"브랜드 리스크에 {pcfg['stress_pd_multiplier']}배를 적용해 동시 악화를 가정한 값입니다.")
 
     imp = C.out_dir() / "correlation_impact.json"
+    rho = None
     if imp.exists():
-        _correlation_note(imp)
-    _tail_contribution()
+        rho = _correlation_note(imp)
+    _tail_contribution(rho)
 
 
-def _tail_contribution() -> None:
+def _tail_contribution(rho: float | None = None) -> None:
     """어느 브랜드가 99% 꼬리를 만드는가 — 측정한 ρ 가 여신 판단으로 이어지는 자리.
 
     왜 이 표가 접힌 참고표가 아니라 본문인가 (심사 지적)
@@ -342,6 +375,9 @@ def _tail_contribution() -> None:
         질문은 "그래서 어느 브랜드의 한도를 봐야 하는가"다. 성분 ES(Euler 배분)는
         합이 전체 ES 와 정확히 일치하는 유일한 가법 배분이라, 꼬리손실을 브랜드별로
         조작 없이 나눠 그 질문에 답한다.
+
+    ⚠️ 이 표는 파이프라인이 몬테카를로 20만 회로 미리 계산한 **고정 산출물**이다.
+       위의 실행·회수 조정에는 반응하지 않는다 — 화면이 그 사실을 먼저 밝힌다.
     """
     p = C.out_dir() / "brand_ul_contribution.csv"
     if not p.exists():
@@ -350,6 +386,9 @@ def _tail_contribution() -> None:
     st.markdown(f"<div style='font-weight:700;font-size:{theme.FS_LG};color:{theme.INK};"
                 f"margin-top:18px'>꼬리손실 기여 상위 — 어느 브랜드가 99% 손실을 만드는가"
                 f"</div>", unsafe_allow_html=True)
+    st.caption("기준 포트폴리오로 미리 계산한 분석 결과입니다 — 위의 실행·회수 조정은 "
+               "반영되지 않습니다.")
+    rho_txt = f"ρ={rho:.3f}" if rho is not None else "측정값"
     view = pd.DataFrame({
         "브랜드": df["brand_name"],
         "여신 비중": df["exposure_share"],
@@ -367,7 +406,7 @@ def _tail_contribution() -> None:
             "쏠림 배수": st.column_config.NumberColumn(
                 format="%.2f배",
                 help="UL 기여 비중 ÷ 여신 비중. 1보다 크면 여신 규모에 비해 꼬리손실 "
-                     "기여가 큰 브랜드 — 브랜드 내부 상관(ρ=0.416)과 집중이 만드는 "
+                     f"기여가 큰 브랜드 — 브랜드 내부 상관({rho_txt})과 집중이 만드는 "
                      "위험 쏠림입니다."),
             "꼬리손실 기여(억)": st.column_config.NumberColumn(format="%.2f"),
         })
@@ -378,13 +417,14 @@ def _tail_contribution() -> None:
         "이 표의 순서를 따르는 것이 이 도구의 처방입니다.")
 
 
-def _correlation_note(path) -> None:
+def _correlation_note(path) -> float | None:
+    """상관 반영 여부에 따른 손실 분위수 비교. 측정된 브랜드 내부 상관 ρ 를 돌려준다."""
     import json
     try:
         ci = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return
-    with st.expander("차주를 서로 독립으로 보면 손실이 얼마나 과소평가되는가"):
+        return None
+    with st.expander("차주를 서로 독립으로 보면 손실이 얼마나 과소평가되는가 (기준 포트폴리오 분석)"):
         rows = []
         for lvl, nm in (("p95", "95%"), ("p99", "99%"), ("p999", "99.9%")):
             if f"independent_{lvl}_mkrw" not in ci:
@@ -399,7 +439,10 @@ def _correlation_note(path) -> None:
                          column_config={c: st.column_config.NumberColumn(c, format="%.1f 억")
                                         for c in ("차주 독립 가정", "브랜드 상관 반영", "과소평가")})
         st.caption("같은 브랜드 가맹점은 본부라는 공통 원인을 공유합니다. 서로 독립이라고 "
-                   "보면 동시에 무너질 확률을 과소평가하게 됩니다.")
+                   "보면 동시에 무너질 확률을 과소평가하게 됩니다. 상관은 지역별 점포 감소의 "
+                   "동시성으로 잰 대리지표이고, 이 표는 조정에 반응하지 않는 고정 산출물입니다.")
+    rho = ci.get("rho_within_brand")
+    return float(rho) if rho is not None else None
 
 
 def _detail_table(port: pd.DataFrame) -> None:
@@ -430,10 +473,18 @@ def _detail_table(port: pd.DataFrame) -> None:
             "exposure_share": st.column_config.ProgressColumn(
                 "비중", format="%.2f%%", min_value=0.0,
                 max_value=float(view["exposure_share"].max() or 1)),
-            f"el_{mid}_mkrw": st.column_config.NumberColumn("예상손실", format="%.2f 억"),
+            f"el_{mid}_mkrw": st.column_config.NumberColumn("대리 예상손실", format="%.2f 억"),
             f"stress_el_{mid}_mkrw": st.column_config.NumberColumn(
                 "스트레스", format="%.2f 억"),
         })
+    # ⚠️ 예전 CSV 는 내부 컬럼명과 백만원 단위 그대로라, 화면(억원)과 숫자가 100배
+    #    어긋나 보였다. 화면에 보이는 이름·단위 그대로 내보낸다.
+    export = view.rename(columns={
+        "brand_name": "브랜드", "industry_mid": "업종", "n_stores": "가맹점 수",
+        "deterioration_1y": "브랜드 리스크(%)", "risk_grade": "등급",
+        "exposure_mkrw": "여신(억원)", "exposure_share": "비중(%)",
+        f"el_{mid}_mkrw": f"대리 예상손실(억원, LGD {int(mid[3:])}%)",
+        f"stress_el_{mid}_mkrw": "스트레스 손실(억원)"})
     st.download_button("포트폴리오 내려받기 (CSV)",
-                       port.to_csv(index=False).encode("utf-8-sig"),
+                       export.round(3).to_csv(index=False).encode("utf-8-sig"),
                        file_name="franscore_portfolio.csv", mime="text/csv")

@@ -29,6 +29,13 @@ def render() -> None:
         st.warning("평가가 아직 산출되지 않았습니다. 잠시 후 다시 확인해 주십시오.")
         return
 
+    # 주소창의 ?brand=<ID> 로 들어오면 그 브랜드 상세를 바로 연다 — 심사 메모·메신저에
+    # 링크 한 줄로 "이 브랜드 보세요"를 전달할 수 있어야 업무 도구다.
+    linked = st.query_params.get("brand")
+    if linked and st.session_state.get("_linked") != linked:
+        st.session_state["_linked"] = linked
+        st.session_state[_SEL] = str(linked)
+
     sel = st.session_state.get(_SEL)
     if sel is not None:
         hit = df[df["brand_id"].astype(str) == str(sel)]
@@ -36,11 +43,15 @@ def render() -> None:
             _detail_screen(hit.iloc[0])
             return
         st.session_state[_SEL] = None      # 데이터가 갱신돼 사라진 브랜드
+    if "brand" in st.query_params:
+        del st.query_params["brand"]
     _list_screen(df, meta)
 
 
 def select_brand(brand_id: str) -> None:
     st.session_state[_SEL] = str(brand_id)
+    st.session_state["_linked"] = str(brand_id)
+    st.query_params["brand"] = str(brand_id)
 
 
 # ---------------------------------------------------------------------------
@@ -86,16 +97,22 @@ def _search_box(df: pd.DataFrame) -> None:
     if hit.empty:
         _not_found(query, near)
         return
-    hit = hit.assign(_n=pd.to_numeric(hit["n_stores"], errors="coerce").fillna(0))
-    hit = hit.sort_values("_n", ascending=False)
     if len(hit) == 1:
         select_brand(str(hit.iloc[0]["brand_id"]))
         st.rerun()
-    st.caption(f"'{query}' 로 {len(hit)}개 브랜드가 검색됐습니다. 가맹점 수가 많은 순입니다.")
+    same_name = hit["brand_name"].astype(str).nunique() == 1
+    if same_name:
+        # 국수나무·피자스쿨처럼 **같은 이름으로 등록된 브랜드가 둘 이상**인 경우 —
+        # 이름만으로는 고를 수 없으니 본부·업종·규모를 함께 보여 준다.
+        st.caption(f"'{query}' 이름으로 등록된 브랜드가 {len(hit)}개입니다. "
+                   "가맹본부와 규모를 확인하고 고르십시오.")
+    else:
+        st.caption(f"'{query}' 로 {len(hit)}개 브랜드가 검색됐습니다. "
+                   "이름이 가까운 순, 같으면 가맹점 수가 많은 순입니다.")
     cols = st.columns(min(3, len(hit)))
     for i, (_, r) in enumerate(hit.head(6).iterrows()):
         with cols[i % len(cols)]:
-            _brand_card(r, key=f"q{i}")
+            _brand_card(r, key=f"q{i}", show_company=same_name)
     st.divider()
 
 
@@ -145,28 +162,36 @@ def _kpis(df: pd.DataFrame) -> None:
     high = df[df["risk_grade"] == "High"]
     med = df[df["risk_grade"] == "Medium"]
     n_stores = pd.to_numeric(high.get("n_stores"), errors="coerce").fillna(0)
+    b = C.grade_bounds(C._mtime(C.out_dir() / "scores_latest.csv"))
+    # ⚠️ 도움말이 "상위 10% 브랜드"라고 했지만 등급은 순위가 아니라 고정 확률 경계로
+    #    매긴다 — 실제 주의 비율은 25%대였다. 경계와 비율을 산출물에서 읽어 적는다.
+    hi_cut, mid_cut = b.get("high_cut"), b.get("medium_cut")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("평가 브랜드", f"{len(df):,}")
-    c2.metric("주의", f"{len(high):,}", help="즉시 점검이 필요한 상위 10% 브랜드입니다.")
-    c3.metric("관찰", f"{len(med):,}", help="추이를 지켜봐야 하는 구간입니다.")
+    c2.metric("주의", f"{len(high):,}",
+              help=(f"{C.RISK_LABEL} {hi_cut:.1f}% 이상 — 즉시 점검 대상입니다. "
+                    f"평가 브랜드의 {len(high) / max(len(df), 1) * 100:.1f}%입니다."
+                    if hi_cut is not None else "즉시 점검 대상입니다."))
+    c3.metric("관찰", f"{len(med):,}",
+              help=(f"{C.RISK_LABEL} {mid_cut:.1f}~{hi_cut:.1f}% — 추이를 지켜볼 구간입니다."
+                    if hi_cut is not None and mid_cut is not None else "추이를 지켜볼 구간입니다."))
     c4.metric("주의 · 100점포 이상", f"{int((n_stores >= 100).sum()):,}",
               help="규모가 커서 부실 시 여신 영향이 큰 브랜드입니다.")
 
 
 def _watchlist(df: pd.DataFrame) -> None:
     st.markdown("### 지금 봐야 할 브랜드")
-    st.caption("리스크와 규모를 함께 본 순서입니다. 규모가 크면 같은 확률이라도 손실이 큽니다.")
+    st.caption("점검 큐와 같은 순서입니다 — 1년 내 악화 위험 × 가맹점 수. "
+               "규모가 크면 같은 위험이라도 은행 여신 영향이 큽니다.")
     high = df[df["risk_grade"] == "High"].copy()
     if high.empty:
         st.success("주의 등급에 해당하는 브랜드가 없습니다.")
         return
-    high["_priority"] = (pd.to_numeric(high["deterioration_1y"], errors="coerce").fillna(0)
-                         * pd.to_numeric(high["n_stores"], errors="coerce").fillna(0))
     diag = C.load_diagnosis_summary()
     dmap = ({str(r["brand_id"]): r for _, r in diag.iterrows()}
             if diag is not None and not diag.empty else {})
 
-    for i, (_, r) in enumerate(high.nlargest(_WATCH_N, "_priority").iterrows()):
+    for i, (_, r) in enumerate(C.prioritize(high).head(_WATCH_N).iterrows()):
         bid = str(r["brand_id"])
         with st.container(border=True):
             head, val = st.columns([3.1, 1])
@@ -175,9 +200,9 @@ def _watchlist(df: pd.DataFrame) -> None:
                     f"<div style='display:flex;gap:12px;align-items:center'>"
                     f"{C.brand_mark_html(str(r['brand_name']), 62)}"
                     f"<div><div style='font-size:{theme.FS_XL};font-weight:700;"
-                    f"color:{theme.INK};line-height:1.3'>{r['brand_name']}</div>"
+                    f"color:{theme.INK};line-height:1.3'>{C.esc(r['brand_name'])}</div>"
                     f"<div style='font-size:{theme.FS_SM};color:{theme.TEXT_SUB}'>"
-                    f"{r.get('industry_mid') or r.get('industry_major') or '-'} · "
+                    f"{C.esc(r.get('industry_mid') or r.get('industry_major') or '-')} · "
                     f"가맹점 {int(r['n_stores']):,}개</div></div></div>",
                     unsafe_allow_html=True)
             with val:
@@ -205,18 +230,24 @@ def _watchlist(df: pd.DataFrame) -> None:
                 st.rerun()
 
 
-def _brand_card(r: pd.Series, *, key: str) -> None:
-    """작은 카드 — 검색 결과·인기 브랜드에 공통으로 쓴다."""
+def _brand_card(r: pd.Series, *, key: str, show_company: bool = False) -> None:
+    """작은 카드 — 검색 결과·인기 브랜드에 공통으로 쓴다.
+
+    show_company: 같은 이름 브랜드가 여럿일 때 가맹본부·업종을 함께 적어 구분한다.
+    """
     bid = str(r["brand_id"])
+    sub = f"가맹점 {int(pd.to_numeric(r['n_stores'], errors='coerce') or 0):,}개"
+    if show_company:
+        bits = [str(r.get(c)) for c in ("company_name", "industry_mid") if str(r.get(c) or "") not in ("", "nan")]
+        sub = " · ".join([*bits, sub])
     with st.container(border=True):
         st.markdown(
             f"<div style='display:flex;gap:10px;align-items:center'>"
             f"{C.brand_mark_html(str(r['brand_name']), 54)}"
             f"<div style='min-width:0'><div style='font-weight:700;font-size:{theme.FS_LG};"
             f"color:{theme.INK};overflow:hidden;text-overflow:ellipsis;"
-            f"white-space:nowrap'>{r['brand_name']}</div>"
-            f"<div style='font-size:{theme.FS_SM};color:{theme.TEXT_SUB}'>"
-            f"가맹점 {int(pd.to_numeric(r['n_stores'], errors='coerce') or 0):,}개</div>"
+            f"white-space:nowrap'>{C.esc(r['brand_name'])}</div>"
+            f"<div style='font-size:{theme.FS_SM};color:{theme.TEXT_SUB}'>{C.esc(sub)}</div>"
             f"</div></div>"
             f"<div style='margin-top:8px'>"
             f"{C.signal_html(str(r['risk_grade']), r['deterioration_1y'], size=11)}</div>",
@@ -349,10 +380,12 @@ def _detail_screen(r: pd.Series) -> None:
     with bc, st.container(border=False):
         if st.button("← FRANSCORE 목록", key="fs_back", use_container_width=True):
             st.session_state[_SEL] = None
+            if "brand" in st.query_params:
+                del st.query_params["brand"]
             st.rerun()
     st.markdown(
         f"<div style='font-size:{theme.FS_SM};color:{theme.TEXT_MUTED};margin:-6px 0 10px 2px'>"
-        f"FRANSCORE › <b style='color:{theme.TEXT_SUB}'>{name}</b></div>",
+        f"FRANSCORE › <b style='color:{theme.TEXT_SUB}'>{C.esc(name)}</b></div>",
         unsafe_allow_html=True)
 
     h1, h2 = st.columns([2.6, 1])
@@ -361,10 +394,10 @@ def _detail_screen(r: pd.Series) -> None:
             f"<div style='display:flex;gap:16px;align-items:center'>"
             f"{C.brand_mark_html(name, 84)}"
             f"<div><div style='font-size:{theme.FS_2XL};font-weight:700;color:{theme.INK};"
-            f"line-height:1.25;letter-spacing:-.02em'>{name} "
+            f"line-height:1.25;letter-spacing:-.02em'>{C.esc(name)} "
             f"{theme.grade_chip(grade)}</div>"
             f"<div style='font-size:{theme.FS_BASE};color:{theme.TEXT_SUB};margin-top:3px'>"
-            f"{r.get('industry_major', '-')} · {r.get('industry_mid', '-')} · "
+            f"{C.esc(r.get('industry_major', '-'))} · {C.esc(r.get('industry_mid', '-'))} · "
             f"가맹점 {int(r['n_stores']):,}개</div></div></div>",
             unsafe_allow_html=True)
         st.markdown(
@@ -413,14 +446,14 @@ def _summary_sentence(r: pd.Series) -> str:
     여기서는 등급·확률·순위·규모라는 네 가지 관측값만으로 문장을 만든다.
     """
     grade = str(r["risk_grade"])
-    p = float(r["deterioration_1y"]) * 100
+    p = C.risk_pct(r["deterioration_1y"]) or 0.0
     n = int(pd.to_numeric(r.get("n_stores"), errors="coerce") or 0)
     rank = r.get("deterioration_rank_pct")
     rank_txt = (f"평가 대상 가운데 상위 {(1 - float(rank)) * 100:.1f}%"
                 if pd.notna(rank) else "순위 미산출")
     b = C.grade_bounds(C._mtime(C.out_dir() / "scores_latest.csv"))
-    cut = (f"주의 경계는 {b['high_cut']:.1f}%, 관찰 경계는 {b['medium_cut']:.1f}%입니다."
-           if b else "")
+    cut = (f"관찰 등급은 {b['medium_cut']:.1f}%부터, 주의 등급은 {b['high_cut']:.1f}%부터입니다."
+           if b.get("high_cut") is not None else "")
     return (f"<div style='margin-top:10px;font-size:{theme.FS_BASE};color:{theme.TEXT_SUB};"
             f"line-height:1.65'>이 브랜드의 {C.RISK_LABEL}는 <b>{p:.1f}%</b>로 "
             f"<b>{theme.GRADE_KR.get(grade, grade)}</b> 등급이며, {rank_txt}입니다. "
@@ -526,9 +559,13 @@ def _tab_hq(brand_id: str) -> None:
     company = str(hit["company_name"].iloc[-1])
     fin = fin_all[fin_all["key"] == norm_corp(company)].sort_values("fiscal_year")
     if fin.empty:
-        st.info(f"**{company}**는 외부감사 대상이 아니어서 감사보고서를 제출하지 않습니다. "
-                "본부의 자본잠식·적자 여부를 감사보고서로도 정보공개서로도 확인할 수 "
-                "없으므로, 여신 심사 시 별도 재무자료를 징구해 확인해야 합니다.")
+        # ⚠️ 예전 문구는 "외부감사 대상이 아니어서 감사보고서를 제출하지 않습니다"라고
+        #    **단정**했다. 실제로는 적격 1,650개 본부 중 법인번호로 확정 매칭된 것이 248개
+        #    뿐이라, 대부분은 '비대상'이 아니라 '매칭하지 못함'이다. 확인한 사실만 적는다.
+        st.info(f"**{company}**의 재무를 금융감독원 전자공시(감사보고서)와 공정위 "
+                "정보공개서 열람분에서 **확인하지 못했습니다** — 외부감사 비대상이거나 "
+                "법인 매칭에 실패한 경우입니다. 본부의 자본잠식·적자 여부를 알 수 없으므로 "
+                "여신 심사 시 본부 최근 3개년 재무제표를 별도로 받아 확인하십시오.")
         return
 
     # 이 표의 원천은 브랜드마다 다르다 — 감사보고서일 수도, 정보공개서일 수도 있다.
