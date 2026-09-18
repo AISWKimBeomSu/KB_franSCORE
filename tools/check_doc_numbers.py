@@ -35,6 +35,9 @@ PROC = ROOT / "data" / "processed"
 
 DOCS = {
     "README": ROOT / "README.md",
+    # README 는 포트폴리오용 요약이 됐고, 전체 표·신뢰구간은 docs/RESULTS.md 로 옮겼다.
+    # 상세 수치는 RESULTS 에서, README 가 인용하는 헤드라인 수치는 README 에서 따로 대조한다.
+    "RESULTS": ROOT / "docs" / "RESULTS.md",
     "IMPL": ROOT / "docs" / "IMPLEMENTATION.md",
     "IFACE": ROOT / "docs" / "INTERFACES.md",
     "LEAK": ROOT / "docs" / "LEAKAGE_CHECKLIST.md",
@@ -124,11 +127,11 @@ def main() -> int:
 
     head("② 라벨 · 피처")
     lab = pd.read_parquet(PROC / "labels.parquet")
-    need("라벨 표본 행수", thou(len(lab)), "README", "IMPL")
-    need("라벨 양성률", f"{100 * lab['label'].mean():.1f}%", "README", "IMPL")
+    need("라벨 표본 행수", thou(len(lab)), "RESULTS", "IMPL")
+    need("라벨 양성률", f"{100 * lab['label'].mean():.1f}%", "RESULTS", "IMPL")
     fs = pd.read_csv(OUT / "feature_summary.csv")
     fs_ext = pd.read_csv(OUT / "extended" / "feature_summary.csv")
-    need("피처 수(기본 트랙)", str(len(fs)), "README", "IMPL", "IFACE")
+    need("피처 수(기본 트랙)", str(len(fs)), "RESULTS", "IMPL", "IFACE", "README")
     info("피처 수(확장 트랙)", len(fs_ext))
     dead = int((fs["n"] == 0).sum()) if "n" in fs.columns else 0
     info("전량 결측(죽은) 피처 수", dead)
@@ -138,18 +141,18 @@ def main() -> int:
     head("③ 단일 시간분할 test (기본 트랙)")
     te = pd.read_csv(OUT / "metrics.csv")
     te = te[te["split"] == "test"].set_index("model")
-    need("test 표본수", thou(te["n"].max()), "README", "IMPL")
-    need("test 양성률", f"{100 * te['base_rate'].max():.1f}%", "README")
+    need("test 표본수", thou(te["n"].max()), "RESULTS", "IMPL")
+    need("test 양성률", f"{100 * te['base_rate'].max():.1f}%", "RESULTS")
     for m in ("persistence", "single", "logistic", "lgbm"):
-        need(f"{m} Lift@10", f"{te.loc[m, 'lift_at_10']:.3f}", "README")
-    need("보정 Brier", f"{te.loc['lgbm_calibrated', 'brier']:.3f}", "README")
+        need(f"{m} Lift@10", f"{te.loc[m, 'lift_at_10']:.3f}", "RESULTS")
+    need("보정 Brier", f"{te.loc['lgbm_calibrated', 'brier']:.3f}", "RESULTS")
 
     head("④ 워크포워드 (주 지표 = fold 평균)")
     wm = pd.read_csv(OUT / "walkforward_metrics.csv")
     macro = wm[wm["scope"] == "macro_avg_folds"].set_index("model")
-    need("WF 표본수(풀링 OOS)", thou(macro["n"].max()), "README")
+    need("WF 표본수(풀링 OOS)", thou(macro["n"].max()), "RESULTS", "README")
     for m in ("persistence", "single", "logistic", "lgbm"):
-        need(f"WF fold평균 {m} Lift@10", f"{macro.loc[m, 'lift_at_10']:.3f}", "README")
+        need(f"WF fold평균 {m} Lift@10", f"{macro.loc[m, 'lift_at_10']:.3f}", "RESULTS", "README")
     # ⚠️ 예전에는 walkforward_delta_ci.csv(bootstrap_unit=year_block, 블록 3개)를
     #    기준으로 삼았다. 블록이 3개뿐인 백분위 부트스트랩은 t-구간의 약 1/3.4 폭밖에
     #    나오지 않아 없는 유의성을 만들어낸다 — 같은 저장소의 lift_delta_bootstrap.csv
@@ -162,8 +165,8 @@ def main() -> int:
         m, n = float(d.mean()), len(d)
         se = float(d.std(ddof=1) / np.sqrt(n))
         t = float(stats.t.ppf(0.975, n - 1))
-        need(f"lgbm - {base} Δ(t)", f"{m:+.3f}", "README")
-        need(f"lgbm - {base} CI(t)", f"[{m - t * se:+.3f}, {m + t * se:+.3f}]", "README")
+        need(f"lgbm - {base} Δ(t)", f"{m:+.3f}", "RESULTS")
+        need(f"lgbm - {base} CI(t)", f"[{m - t * se:+.3f}, {m + t * se:+.3f}]", "RESULTS")
     bias = pd.read_csv(OUT / "walkforward_pool_bias.csv")
     worst = bias.loc[bias["bias_ratio"].sub(1.0).abs().idxmax()]
     need("원점수 풀링 최대 편향배수", f"{worst['bias_ratio']:.2f}", "IMPL")
@@ -174,21 +177,21 @@ def main() -> int:
     ext_wf = tc[(tc["track"] == "extended")
                 & (tc["eval"] == "walkforward_macro_avg_folds")].set_index("model")
     ext_lab = pd.read_parquet(OUT / "extended" / "processed" / "labels.parquet")
-    need("확장 라벨 표본", thou(len(ext_lab)), "README")
-    need("확장 단일분할 lgbm", f"{ext_ss.loc['lgbm', 'lift_at_10']:.3f}", "README")
-    need("확장 단일분할 logistic", f"{ext_ss.loc['logistic', 'lift_at_10']:.3f}", "README")
-    need("확장 WF lgbm", f"{ext_wf.loc['lgbm', 'lift_at_10']:.3f}", "README")
-    need("확장 WF logistic", f"{ext_wf.loc['logistic', 'lift_at_10']:.3f}", "README")
+    need("확장 라벨 표본", thou(len(ext_lab)), "RESULTS")
+    need("확장 단일분할 lgbm", f"{ext_ss.loc['lgbm', 'lift_at_10']:.3f}", "RESULTS")
+    need("확장 단일분할 logistic", f"{ext_ss.loc['logistic', 'lift_at_10']:.3f}", "RESULTS")
+    need("확장 WF lgbm", f"{ext_wf.loc['lgbm', 'lift_at_10']:.3f}", "RESULTS")
+    need("확장 WF logistic", f"{ext_wf.loc['logistic', 'lift_at_10']:.3f}", "RESULTS")
 
     head("⑥ 포트폴리오 (합성 예시 여신)")
     port = pd.read_csv(OUT / "portfolio.csv")
     s = json.loads((OUT / "portfolio_summary.json").read_text(encoding="utf-8"))
-    need("총 익스포저(억원)", thou(port["exposure_mkrw"].sum() / 100), "README", "IMPL")
-    need("EL LGD45(억원)", f"{port['el_lgd45_mkrw'].sum() / 100:.1f}", "README", "IMPL")
+    need("총 익스포저(억원)", thou(port["exposure_mkrw"].sum() / 100), "RESULTS", "IMPL")
+    need("EL LGD45(억원)", f"{port['el_lgd45_mkrw'].sum() / 100:.1f}", "RESULTS", "IMPL")
     need("스트레스 EL LGD45(억원)", f"{port['stress_el_lgd45_mkrw'].sum() / 100:.1f}",
-         "README", "IMPL")
-    need("상위10 집중도", f"{100 * s['concentration']['top10_share']:.1f}%", "README", "IMPL")
-    need("HHI", f"{s['concentration']['hhi']:.3f}", "README", "IMPL")
+         "RESULTS", "IMPL")
+    need("상위10 집중도", f"{100 * s['concentration']['top10_share']:.1f}%", "RESULTS", "IMPL")
+    need("HHI", f"{s['concentration']['hhi']:.3f}", "RESULTS", "IMPL")
     need("High 등급 브랜드 수", f"{int(s['risk_grades']['counts']['High'])}/60", "IMPL")
 
     head("⑥-2 가맹본부 재무 (DART) · 정보공개서 원문")
@@ -232,9 +235,9 @@ def main() -> int:
     cov = cov[cov["eligible_t"].fillna(False).astype(bool)]
     has = cov["f_hq_has_financials"].fillna(0)
     w = cov["n_stores"].fillna(0)
-    need("본부재무 커버리지(자격·브랜드)", f"{100 * has.mean():.1f}%", "README", "IMPL")
+    need("본부재무 커버리지(자격·브랜드)", f"{100 * has.mean():.1f}%", "RESULTS", "IMPL", "README")
     need("본부재무 커버리지(자격·가맹점가중)",
-         f"{100 * (w * has).sum() / max(w.sum(), 1):.1f}%", "README", "IMPL")
+         f"{100 * (w * has).sum() / max(w.sum(), 1):.1f}%", "RESULTS", "IMPL")
     info("본부재무 보유 브랜드 수", f"{int(has.sum())} / {len(cov)}")
     # 원천 분해 — 어디서 온 값인지 문서가 말하는 대로인지 본다
     hq_full = pd.read_parquet(PROC / "hq_financials.parquet")
@@ -313,35 +316,35 @@ def main() -> int:
         info("브랜드별 수집 건수", st.get("collected_brands"))
         # 데모 상태인데 '전량 수집했다'고 적혀 있으면 즉시 실패시킨다
         if st.get("demo_check", {}).get("is_demo"):
-            for k in ("IMPL", "README"):
+            for k in ("IMPL", "RESULTS"):
                 if "정식 키" not in _txt(k):
                     _fails.append(f"정보공개서가 데모 상태인데 {k} 에 키 대기 사실이 없음")
 
     head("⑦ 브랜드 공통요인 상관 (전제 검증)")
     bc = json.loads((OUT / "brand_correlation.json").read_text(encoding="utf-8"))
     dec = bc["decomposition"]
-    need("상관 통제없음", f"{dec['no_control']['rho_asset']:.3f}", "README")
-    need("상관 연도통제", f"{dec['year_controlled']['rho_asset']:.3f}", "README")
-    need("상관 연도+업종통제(headline)", f"{bc['rho_asset']:.3f}", "README", "IMPL")
-    need("상관 95% CI", f"[{bc['rho_asset_ci_lo']:.3f}, {bc['rho_asset_ci_hi']:.3f}]", "README")
-    need("분석 브랜드-연도", thou(bc["n_brand_years"]), "README")
-    need("분석 지역쌍", thou(bc["n_region_pairs"]), "README")
-    need("전지역 동시감소 실측", f"{100 * bc['all_regions_decline_observed']:.2f}%", "README")
-    need("전지역 동시감소 배수", f"{bc['all_regions_decline_ratio']:.1f}배", "README")
+    need("상관 통제없음", f"{dec['no_control']['rho_asset']:.3f}", "RESULTS")
+    need("상관 연도통제", f"{dec['year_controlled']['rho_asset']:.3f}", "RESULTS")
+    need("상관 연도+업종통제(headline)", f"{bc['rho_asset']:.3f}", "RESULTS", "IMPL", "README")
+    need("상관 95% CI", f"[{bc['rho_asset_ci_lo']:.3f}, {bc['rho_asset_ci_hi']:.3f}]", "RESULTS")
+    need("분석 브랜드-연도", thou(bc["n_brand_years"]), "RESULTS")
+    need("분석 지역쌍", thou(bc["n_region_pairs"]), "RESULTS")
+    need("전지역 동시감소 실측", f"{100 * bc['all_regions_decline_observed']:.2f}%", "RESULTS")
+    need("전지역 동시감소 배수", f"{bc['all_regions_decline_ratio']:.1f}배", "RESULTS", "README")
 
     btw = bc["between_brand"]
-    need("브랜드 간 상관 rho_B", f"{btw['rho_between']:.3f}", "README")
-    need("rho_B CI", f"[{btw['rho_between_ci_lo']:.3f}, {btw['rho_between_ci_hi']:.3f}]", "README")
+    need("브랜드 간 상관 rho_B", f"{btw['rho_between']:.3f}", "RESULTS", "README")
+    need("rho_B CI", f"[{btw['rho_between_ci_lo']:.3f}, {btw['rho_between_ci_hi']:.3f}]", "RESULTS")
 
     ci_ = json.loads((OUT / "correlation_impact.json").read_text(encoding="utf-8"))
-    need("차주(가맹점) 수", thou(ci_["n_franchisees"]), "README")
+    need("차주(가맹점) 수", thou(ci_["n_franchisees"]), "RESULTS", "README")
     for lvl, _lab in (("p95", "95%"), ("p99", "99%"), ("p999", "99.9%")):
-        need(f"{lvl} 독립가정 손실(억)", f"{ci_[f'independent_{lvl}_mkrw'] / 100:.1f}", "README")
-        need(f"{lvl} 상관반영 손실(억)", f"{ci_[f'brand_correlated_{lvl}_mkrw'] / 100:.1f}", "README")
-        need(f"{lvl} 과소추정(억)", f"{ci_[f'understatement_{lvl}_mkrw'] / 100:.1f}", "README")
-    need("UL99 배수", f"{ci_['ul99_multiple']:.2f}배", "README")
-    need("UL99 독립(억)", f"{ci_['independent_ul99_mkrw'] / 100:.1f}", "README")
-    need("UL99 상관(억)", f"{ci_['brand_correlated_ul99_mkrw'] / 100:.1f}", "README")
+        need(f"{lvl} 독립가정 손실(억)", f"{ci_[f'independent_{lvl}_mkrw'] / 100:.1f}", "RESULTS")
+        need(f"{lvl} 상관반영 손실(억)", f"{ci_[f'brand_correlated_{lvl}_mkrw'] / 100:.1f}", "RESULTS")
+        need(f"{lvl} 과소추정(억)", f"{ci_[f'understatement_{lvl}_mkrw'] / 100:.1f}", "RESULTS")
+    need("UL99 배수", f"{ci_['ul99_multiple']:.2f}배", "RESULTS", "README")
+    need("UL99 독립(억)", f"{ci_['independent_ul99_mkrw'] / 100:.1f}", "RESULTS", "README")
+    need("UL99 상관(억)", f"{ci_['brand_correlated_ul99_mkrw'] / 100:.1f}", "RESULTS", "README")
 
     head("⑦-3 LLM 정량 평가 (규칙기반 대비)")
     ep = OUT / "llm_eval.json"
@@ -358,11 +361,11 @@ def main() -> int:
                     continue
                 for who in ("rules", "llm"):
                     m = ev[scope][who]
-                    need(f"{scope}/{who} 정확도", f"{m['accuracy']:.3f}", "README")
-                    need(f"{scope}/{who} macro-F1", f"{m['macro_f1']:.3f}", "README")
-                    need(f"{scope}/{who} 위험F1", f"{m['risk_f1']:.3f}", "README")
-            need("평가 대상 실수집 건수", f"{ev['real']['rules']['n']}건", "README")
-            need("평가 프로브 건수", f"{ev['synthetic']['rules']['n']}건", "README")
+                    need(f"{scope}/{who} 정확도", f"{m['accuracy']:.3f}", "RESULTS")
+                    need(f"{scope}/{who} macro-F1", f"{m['macro_f1']:.3f}", "RESULTS")
+                    need(f"{scope}/{who} 위험F1", f"{m['risk_f1']:.3f}", "RESULTS")
+            need("평가 대상 실수집 건수", f"{ev['real']['rules']['n']}건", "RESULTS")
+            need("평가 프로브 건수", f"{ev['synthetic']['rules']['n']}건", "RESULTS")
             info("평가 모델", ev.get("model"))
 
     # 🛑 배포 산출물이 **실제로 LLM 으로 만들어진 것인가**를 여기서 확인한다.
@@ -398,12 +401,12 @@ def main() -> int:
         ("몬테카를로 횟수", r"몬테카를로\s*(\d+)만\s*회", str(ci_["n_sims"] // 10000)),
         ("UL 배수", r"([\d.]+)배\*{0,2}다", f"{ci_['ul99_multiple']:.2f}"),
     ):
-        txt = _txt("README")
+        txt = _txt("README") + "\n" + _txt("RESULTS")
         found = set(_re.findall(pattern, txt))
         stale = {v for v in found if v.replace(",", "") != truth}
         _checked_inc()
         if stale:
-            _fails.append(f"{label}: 폐기값 {sorted(stale)} 이 README에 남아 있음 (정답 {truth})")
+            _fails.append(f"{label}: 폐기값 {sorted(stale)} 이 README·RESULTS 에 남아 있음 (정답 {truth})")
             print(f"  [STALE] {label:28s} 잔존 {sorted(stale)} (정답 {truth})")
         else:
             print(f"  [OK  ] {label:28s} 정답 '{truth}' 외 다른 값 없음")
@@ -428,24 +431,24 @@ def main() -> int:
         # 값만 넘기면 문서 안 다른 97.8%(엔티티 정합 확보율)에 걸려 통과한다 —
         # 실제로 README 에 98.8% 라 적혀 있는데 통과했다. 문구째 대조한다.
         need("본부 축 패널 관리번호 보유율",
-             f"패널 전체의 **{100 * ha['hq_coverage_in_panel']:.1f}%**", "README")
+             f"패널 전체의 **{100 * ha['hq_coverage_in_panel']:.1f}%**", "RESULTS")
         for r in ha["table"]:
             if r["state"] != "요주의" or r["n_events_at_t"] not in (1, 2):
                 continue
             k = r["n_events_at_t"]
-            need(f"형제 정상 재발동률(k={k})", f"{100 * r['rate_sib_ok']:.1f}%", "README")
-            need(f"형제 악화 재발동률(k={k})", f"{100 * r['rate_sib_bad']:.1f}%", "README")
-            need(f"형제 효과 Fisher p(k={k})", f"{r['fisher_p']:.4f}", "README")
+            need(f"형제 정상 재발동률(k={k})", f"{100 * r['rate_sib_ok']:.1f}%", "RESULTS")
+            need(f"형제 악화 재발동률(k={k})", f"{100 * r['rate_sib_bad']:.1f}%", "RESULTS")
+            need(f"형제 효과 Fisher p(k={k})", f"{r['fisher_p']:.4f}", "RESULTS")
         for e in ha.get("hq_size_effect", []):
             if e["n_events_at_t"] != 1:
                 continue
-            need("본부 규모 효과 소", f"{100 * e['rate_small']:.1f}%", "README")
-            need("본부 규모 효과 대", f"{100 * e['rate_big']:.1f}%", "README")
-            need("본부 규모 효과 p", f"{e['fisher_p']:.4f}", "README")
-        need("본부 축 관측 Δ", f"{ha['observed_delta']:+.4f}", "README")
-        need("본부 축 귀무 평균", f"{ha['null']['mean']:+.4f}", "README")
-        need("본부 축 p값", f"p={ha['null']['p_value']:.3f}", "README")
-        need("본부 축 교란 설명분", f"{100 * ha['confound_share']:.1f}%", "README")
+            need("본부 규모 효과 소", f"{100 * e['rate_small']:.1f}%", "RESULTS")
+            need("본부 규모 효과 대", f"{100 * e['rate_big']:.1f}%", "RESULTS")
+            need("본부 규모 효과 p", f"{e['fisher_p']:.4f}", "RESULTS")
+        need("본부 축 관측 Δ", f"{ha['observed_delta']:+.4f}", "RESULTS")
+        need("본부 축 귀무 평균", f"{ha['null']['mean']:+.4f}", "RESULTS")
+        need("본부 축 p값", f"p={ha['null']['p_value']:.3f}", "RESULTS")
+        need("본부 축 교란 설명분", f"{100 * ha['confound_share']:.1f}%", "RESULTS")
 
     head("⑨ 화면 코드 대조 (src/views) — 문서만 고치면 잡히지 않는 자리")
     # 🛑 이 절이 없던 동안 실제로 이런 일이 있었다: README 는 '7.30배'인데 서비스 소개
@@ -590,7 +593,7 @@ def main() -> int:
         cats = [int(m.group(3)) for m in re.finditer(r"### ([A-Z])\. (.+?) \((\d+)건\)", sec)]
         if cats and sum(cats) != len(rows):
             _fails.append(f"TECH 카테고리 합 {sum(cats)} ≠ 실제 행수 {len(rows)}")
-        need("TECH 결함 전수 건수", f"결함 {len(rows)}건", "README", "TECH")
+        need("TECH 결함 전수 건수", f"결함 {len(rows)}건", "RESULTS", "TECH")
 
     # 수집 데이터셋 종수는 **원본 스냅샷 파일군**에서 센다. 창업비용(15110265)을
     # 뒤늦게 추가했을 때 README 가 6종에 멈춰 있었다 — 원천이 늘어나는 것은
@@ -599,7 +602,7 @@ def main() -> int:
     if raw.exists():
         fam = {re.sub(r"_\d{4}\.json.*$", "", p.name) for p in raw.glob("*.json*")}
         if fam:
-            need("공정위 수집 데이터셋 종수", f"오픈API **{len(fam)}종**", "README")
+            need("공정위 수집 데이터셋 종수", f"오픈API **{len(fam)}종**", "RESULTS", "README")
 
     # 라벨 구성표는 **자격 통과 표본**을 말한다. 예전에는 같은 파일이 자격 이전
     # 프레임(7,163행·11.4%)을 담아 OPERATIONS 와 IMPLEMENTATION 이 서로 다른 값을
@@ -617,7 +620,29 @@ def main() -> int:
     if logo_dir.exists():
         need("DEPLOY 동봉 로고 건수", f"로고 {len(list(logo_dir.glob('*.png')))}건", "DEPLOY")
 
-    need("OPS 자동대조 건수", f"{_checked + 1}건", "OPS")   # 이 줄 자신을 포함한 수
+    head("⑩ README 헤드라인 — 포트폴리오 요약이 인용하는 수치")
+    sc = pd.read_csv(OUT / "scores_latest.csv", encoding="utf-8-sig")
+    need("평가 브랜드 수", thou(len(sc)), "README")
+    gb = json.loads((OUT / "grade_bands.json").read_text(encoding="utf-8"))
+    for r in gb["out_of_time"]["by_grade"]:
+        need(f"시점 밖 등급 실현율 {r['grade']}", f"{100 * r['rate']:.1f}%", "README")
+    vs = json.loads((OUT / "validation" / "summary.json").read_text(encoding="utf-8"))
+    dp = vs["discrimination_pooled"]
+    need("풀링 OOS AUC", f"{dp['auc']:.3f}", "README")
+    need("풀링 OOS AUC CI", f"[{dp['auc_lo']:.3f}, {dp['auc_hi']:.3f}]", "README")
+    need("풀링 OOS KS", f"{dp['ks']:.3f}", "README")
+    cal = vs["calibration"]
+    need("보정 HL p", f"p={cal['hosmer_lemeshow']['p_value']:.3f}", "README")
+    need("보정 ECE", f"ECE {cal['ece']:.3f}", "README")
+    wr = json.loads((OUT / "watch_base_rates.json").read_text(encoding="utf-8"))
+    for r in wr["table"]:
+        need(f"다음 해 재발동률 k={r['n_events_at_t']}", f"{100 * r['rate']:.1f}%", "README")
+    le = json.loads((OUT / "llm_eval.json").read_text(encoding="utf-8"))
+    need("뉴스 추출 정확도 LLM(전체)", f"{le['all']['llm']['accuracy']:.3f}", "README")
+    need("뉴스 추출 정확도 규칙(전체)", f"{le['all']['rules']['accuracy']:.3f}", "README")
+    need("뉴스 정답셋 건수", f"{le['all']['rules']['n']}건", "README")
+
+    need("OPS 자동대조 건수", f"{_checked + 1}건", "OPS", "README")   # 이 줄 자신을 포함한 수
 
     head("결과")
     if _fails:
