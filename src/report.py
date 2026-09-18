@@ -825,15 +825,15 @@ def _state_texts(ctx: dict) -> tuple[str, str, str]:
     base = rates.get(0)
     if state == "요주의":
         r = rates.get(k) if k is not None else None
-        tile = f"요주의 <small>사건 {k}건</small>" if k is not None else "요주의"
+        tile = f"악화 발생 <small>사건 {k}건</small>" if k is not None else "악화 발생"
         if not r:
             return (tile, "같은 사건 수의 과거 실현율 표본이 없습니다",
-                    f"요주의 — 올해 공시 악화 사건 {_e(k)}건. 같은 사건 수의 과거 실현율 표본이 없습니다.")
+                    f"악화 발생 — 올해 공시 악화 사건 {_e(k)}건. 같은 사건 수의 과거 실현율 표본이 없습니다.")
         rate = float(r["rate"])
         mult = (f", 건전 {float(base['rate']) * 100:.1f}%의 {rate / float(base['rate']):.1f}배"
                 if base and _num(base.get("rate")) else "")
         return (tile, f"다음 해 재발동 실현율 {rate * 100:.1f}%",
-                f"<b>요주의</b> — 올해 공시 악화 사건 <b>{k}건</b>. 같은 조건의 과거 브랜드 "
+                f"<b>악화 발생</b> — 올해 공시 악화 사건 <b>{k}건</b>. 같은 조건의 과거 브랜드 "
                 f"{int(r['n']):,}개 중 <b>{rate * 100:.1f}%</b>가 다음 해에도 악화 사건을 냈습니다"
                 f"(95% 구간 {float(r['ci_low']) * 100:.1f}~{float(r['ci_high']) * 100:.1f}%{mult}). "
                 "이 구간은 학습·평가 표본 밖이라 위 확률값에는 성능 근거가 없습니다 — "
@@ -861,7 +861,7 @@ def _summary(ctx: dict, grade: str | None, cuts: list[float], crit: list[dict]) 
     band = _band_text(grade, cuts) or _e(b.get("grade_band"))
     p = _risk_pct(_num(b.get("deterioration_1y")), cuts)
     p_txt = f"{p:.1f}<small>%</small>" if p is not None else "—"
-    caveat = {"요주의": " · 요주의 구간 — 이 확률값은 성능 근거 없음",
+    caveat = {"요주의": " · 악화 발생 구간 — 이 확률값은 성능 근거 없음",
               "평가불가": " · 평가불가 — 신뢰할 수 없음"}.get(state, "")
     st_val, st_sub, st_sentence = _state_texts(ctx)
     grade_v = (f"{grade} <small>{GRADE_LABEL[grade]}</small>" if grade in GRADE_LABEL else "—")
@@ -1280,7 +1280,7 @@ def _basis_html(ctx: dict, grade: str | None, cuts: list[float]) -> str:
     parts.append("<h3>자료 출처와 기준</h3><ul>" + "".join(f"<li>{s}</li>" for s in srcs) + "</ul>")
     limits = [
         "라벨이 업종 내 상대 분위수라 절대적 위험 수준이나 경기 국면을 측정하지 않습니다.",
-        "요주의(올해 악화 사건이 이미 발동한) 구간에는 모형 판별력 근거가 없습니다 — 위 실현율표로 판단합니다.",
+        "악화 발생(올해 악화 사건이 이미 나타난) 구간에는 모형 판별력 근거가 없습니다 — 위 실현율표로 판단합니다.",
         "본부 재무는 공시와 매칭된 본부만 확인됩니다. 매칭되지 않은 본부는 '재무 없음'이 아니라 "
         "'확인되지 않음'입니다.",
         "영업위약금과 본부→가맹점 대여금은 수집한 공시 항목에 없어 보지 못합니다.",
