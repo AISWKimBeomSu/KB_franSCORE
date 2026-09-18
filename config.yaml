@@ -214,6 +214,8 @@ llm:
   max_retries: 6                  # 429/5xx 지수 백오프 재시도 (무료 등급 분당 한도 대응)
   retry_backoff_sec: 4.0
   timeout_sec: 90
+  chat_timeout_sec: 30            # 상담 화면 전용 — 사람이 기다리는 화면에 배치용 90초·6회 재시도를 쓰지 않는다
+  chat_max_retries: 2
   eval_pace_sec: 8.0              # 평가 시 브랜드 배치 간 대기 — 분당 요청 한도 회피
   news:
     # 원천 우선순위: 네이버 검색 API(키 있으면) → Google News RSS(항상, 보완)

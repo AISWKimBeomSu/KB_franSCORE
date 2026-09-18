@@ -8,8 +8,9 @@ from src.views import common as C
 
 _HISTORY = "chat_history"
 _PENDING = "chat_pending"
+# 심사역이 실제로 묻는 순서 — 브랜드 한 곳 → 추이 → 비교 → 업종.
 EXAMPLES = [
-    "인생냉면 창업을 고민 중인데 전반적으로 분석해줘",
+    "인생냉면 가맹점 대출 심사 전에 봐야 할 점을 정리해줘",
     "달콤왕가탕후루 가맹점 수 추이를 가져와줘",
     "메가커피와 컴포즈커피 중 어디가 더 안정적이야?",
     "치킨 업종에서 지금 가장 위험한 브랜드는?",
@@ -56,17 +57,8 @@ def render() -> None:
                     st.caption(f"이 답변은 **{used}** 가 작성했습니다 — 등록된 키가 "
                                f"평가 모델({pinned})을 쓸 수 없어 대체 모델로 답했습니다. "
                                f"성능 수치는 평가 모델 기준입니다.")
-            if turn["role"] == "assistant" and not turn.get("llm_used", True):
-                st.caption({
-                    "rate_limit": "등록된 키가 모두 분당 호출 한도에 걸렸습니다. "
-                                  "1~2분 뒤 다시 물어보세요.",
-                    "rate_limit_day": "등록된 키가 모두 무료 등급 일일 한도를 다 썼습니다. "
-                                      "한국시간 오후 4시경 초기화됩니다.",
-                    "model_unavailable": "등록된 키가 지금 설정된 모델을 쓸 수 없습니다.",
-                    "no_key": "답변 생성 모델이 설정되지 않아 수집된 사실만 정리했습니다.",
-                    "bad_key": "등록된 키가 Gemini API 키 형식(AIza…)이 아닙니다.",
-                    "auth": "등록된 키가 인증을 통과하지 못했습니다.",
-                }.get(turn.get("reason", ""), "답변 생성에 실패해 수집된 사실만 정리했습니다."))
+            # ⚠️ 모델을 못 쓴 이유는 **답 본문 첫 줄**에 이미 적힌다(chat._no_llm_notice).
+            #    여기서 캡션으로 한 번 더 적으면 같은 안내가 두 번 나와 답을 가린다.
 
     # ⚠️ 답을 만든 뒤에 질문까지 한꺼번에 그리면, 사용자가 엔터를 친 뒤 수십 초 동안
     #    **자기가 뭘 물었는지도 화면에 안 보인다**. 질문을 먼저 세션에 넣고 즉시 rerun 해
@@ -106,9 +98,12 @@ def _answer(question: str) -> None:
     st.session_state[_PENDING] = None
     try:
         res = chat.answer(C.cfg(), question, history[:-1])
-    except Exception as exc:                          # 화면이 죽으면 안 된다
+    except Exception:                                  # 화면이 죽으면 안 된다
+        # 예외 원문(내부 경로·키 조각이 섞일 수 있다)은 화면에 내지 않고 로그로만 남긴다.
+        chat.log.exception("상담 답변 실패")
         history.append({"role": "assistant",
-                        "content": f"답변 중 문제가 발생했습니다: {exc}",
+                        "content": "답변을 만드는 중 문제가 발생했습니다. 질문을 조금 바꿔 다시 "
+                                   "물어보시거나, FRANSCORE 화면에서 브랜드를 직접 검색해 주십시오.",
                         "llm_used": False, "reason": "error"})
         return
     history.append({"role": "assistant", "content": res["text"],
@@ -129,14 +124,14 @@ def _evidence_block(evidence: list[dict], idx: int) -> None:
             chip = theme.chip(kind or "문서",
                               "Info" if kind == "실시간뉴스" else "Neutral")
             url = str(e.get("url") or "")
-            head = f"{chip} <b>{e.get('출처', '')}</b>"
+            head = f"{chip} <b>{C.esc(e.get('출처', ''))}</b>"
             if e.get("발행"):
                 head += (f"<span style='color:{theme.TEXT_MUTED};font-size:{theme.FS_SM}'>"
-                         f" · {e['발행']}</span>")
+                         f" · {C.esc(e['발행'])}</span>")
             st.markdown(head, unsafe_allow_html=True)
             st.markdown(
                 f"<div style='font-size:{theme.FS_MD};color:{theme.TEXT_SUB};line-height:1.55;"
-                f"margin:2px 0 10px 0'>{str(e.get('내용', ''))[:400]}…</div>",
+                f"margin:2px 0 10px 0'>{C.esc(str(e.get('내용', ''))[:400])}…</div>",
                 unsafe_allow_html=True)
             if url and url.startswith("http"):
                 st.markdown(f"[원문 보기]({url})")

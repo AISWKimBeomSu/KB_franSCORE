@@ -393,10 +393,32 @@ def build_index(cfg: dict, corpus: pd.DataFrame | None = None) -> RagIndex:
     return index
 
 
+_INDEX_CACHE: dict[str, tuple[float, RagIndex | None]] = {}
+
+
 def load_index(cfg: dict) -> RagIndex | None:
+    """색인을 읽는다 — 같은 파일이면 **프로세스당 한 번만.**
+
+    ⚠️ 상담 화면은 질문마다 이 함수를 불렀고, 그때마다 67MB 파일을 1~3초에 걸쳐 다시
+       읽어 약 236MB 를 새로 올렸다. 메모리 1GB 인 무료 배포 환경에서는 동시 질문 두 건이면
+       한계에 닿아 앱이 강제 재시작될 수 있다. 파일 경로·수정시각을 키로 한 번 읽은 색인을
+       재사용한다(색인은 읽기 전용이라 여러 세션이 공유해도 안전하다).
+    """
     fp = Path(cfg["paths"]["outputs"]) / INDEX_FILE
     if not fp.exists():
         return None
+    key = str(fp.resolve())
+    mtime = fp.stat().st_mtime
+    hit = _INDEX_CACHE.get(key)
+    if hit is not None and hit[0] == mtime:
+        return hit[1]
+    index = _load_index_file(fp)
+    _INDEX_CACHE.clear()                    # 옛 색인은 놓아 준다 — 한 벌만 상주
+    _INDEX_CACHE[key] = (mtime, index)
+    return index
+
+
+def _load_index_file(fp: Path) -> RagIndex | None:
     try:
         obj = joblib.load(fp)
     except Exception as e:  # 손상 파일·버전 불일치 등 — 폴백이 안전하다

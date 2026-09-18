@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src import llm
+from src import grading, llm
 from src.brand_search import search
 from src.common import get_logger, load_config
 
@@ -283,9 +283,9 @@ def brand_facts(cfg: dict, brand_name: str) -> dict:
         "평가연도": int(r["year"]),
         "업종": f"{r.get('industry_major', '')} / {r.get('industry_mid', '')}",
         "가맹점수": int(r["n_stores"]) if pd.notna(r["n_stores"]) else None,
-        "브랜드_리스크": f"{float(r['deterioration_1y']) * 100:.1f}%",
-        "위험등급": {"High": "주의", "Medium": "관찰", "Low": "안정"}.get(
-            str(r["risk_grade"]), str(r["risk_grade"])),
+        # 화면과 같은 표기 규칙(src/grading.py) — 경계 아래 값이 반올림으로 경계에 닿지 않게
+        "브랜드_리스크": f"{grading.display_pct(r['deterioration_1y'], grading.cuts(out_dir)):.1f}%",
+        "위험등급": grading.GRADE_KR.get(str(r["risk_grade"]), str(r["risk_grade"])),
         "전체중_상위": f"{(1 - float(r['deterioration_rank_pct'])) * 100:.1f}%"
         if pd.notna(r.get("deterioration_rank_pct")) else None,
     })
@@ -369,8 +369,11 @@ def industry_facts(cfg: dict, question: str, top_n: int = 8) -> dict | None:
     if sub.empty:
         return None
     sub = sub.assign(_n=pd.to_numeric(sub["n_stores"], errors="coerce").fillna(0))
-    top = sub.assign(_pri=pd.to_numeric(sub["deterioration_1y"], errors="coerce").fillna(0) * sub["_n"]) \
-             .nlargest(top_n, "_pri")
+    # 점검 큐와 같은 순서 규칙 + 등급 우선 — "가장 위험한 브랜드"를 물었는데 가맹점이
+    # 많다는 이유만으로 안정 등급이 2·3위에 오르던 문제를 막는다(실측).
+    rates = grading.watch_rates(out_dir)
+    top = grading.prioritize(sub, rates, by_grade=True).head(top_n)
+    cuts = grading.cuts(out_dir)
     return {
         "업종": name,
         "평가_브랜드수": len(sub),
@@ -379,9 +382,9 @@ def industry_facts(cfg: dict, question: str, top_n: int = 8) -> dict | None:
         "브랜드_리스크_중간값": f"{float(sub['deterioration_1y'].median()) * 100:.1f}%",
         "위험_상위_브랜드": [
             {"브랜드": str(r["brand_name"]), "가맹점수": _i(r["n_stores"]),
-             "브랜드_리스크": f"{float(r['deterioration_1y']) * 100:.1f}%",
-             "등급": {"High": "주의", "Medium": "관찰", "Low": "안정"}.get(
-                 str(r["risk_grade"]), str(r["risk_grade"]))}
+             "브랜드_리스크": f"{grading.display_pct(r['deterioration_1y'], cuts):.1f}%",
+             "등급": grading.GRADE_KR.get(str(r["risk_grade"]), str(r["risk_grade"])),
+             "상태": ("악화 발생" if str(r.get("brand_state")) == "요주의" else str(r.get("brand_state") or "-"))}
             for _, r in top.iterrows()],
     }
 
@@ -528,28 +531,102 @@ def select_facts(intent: str, question: str, facts: list[dict]) -> list[dict]:
     return out
 
 
-def _fallback(facts: list[dict], evidence: list[dict], question: str) -> str:
-    """LLM 없이 — 모아온 사실만 정리해 보여준다 (지어내지 않는다)."""
-    if not facts and not evidence:
-        return ("질문에서 브랜드를 찾지 못했습니다. 공시 등록명으로 다시 물어보시거나 "
-                "'브랜드 조회' 화면에서 이름을 확인해 주십시오.")
-    parts = ["※ 답변 생성 모델이 연결되지 않아 **수집된 사실만 정리**해 보여드립니다.\n"]
+CAPABILITY_TEXT = (
+    "FranSCORE 상담은 **공정거래위원회 가맹사업 공시 · 금융감독원 감사보고서 · 뉴스**에 있는 "
+    "사실로만 답합니다. 이렇게 물어보십시오.\n\n"
+    "- 브랜드 한 곳 — \"메가커피 분석해줘\", \"인생냉면 본부 재무 보여줘\"\n"
+    "- 추이 — \"달콤왕가탕후루 가맹점 수 추이를 가져와줘\"\n"
+    "- 비교 — \"메가커피와 컴포즈커피 중 어디가 더 안정적이야?\"\n"
+    "- 업종 — \"치킨 업종에서 지금 가장 위험한 브랜드는?\"\n\n"
+    "브랜드 이름은 공시 등록명이 아니어도 됩니다(예: 메가커피 → 메가엠지씨커피).")
+
+
+def _md_table(rows: list[dict], cols: list[str], labels: dict[str, str] | None = None) -> list[str]:
+    """dict 목록 → 마크다운 표 줄들. 값이 없으면 '-'. labels 로 머리글을 사람이 읽는 이름으로."""
+    def cell(v, col):
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return "-"
+        if isinstance(v, int) and "연도" not in col:      # 연도에 천 단위 쉼표를 찍지 않는다
+            return f"{v:,}"
+        return str(v)
+    names = [(labels or {}).get(c, c.replace("_", " ")) for c in cols]
+    out = ["| " + " | ".join(names) + " |", "|" + "---|" * len(cols)]
+    out += ["| " + " | ".join(cell(r.get(c), c) for c in cols) + " |" for r in rows]
+    return out
+
+
+def _fallback(facts: list[dict], evidence: list[dict], question: str,
+              industry: dict | None = None, intent: str | None = None) -> str:
+    """LLM 없이 — 모아온 사실만 정리해 보여준다 (지어내지 않는다).
+
+    ⚠️ 예전 대체 답변은 브랜드 사실만 읽었다. 업종 재료는 이미 계산해 놓고도 버려서
+       예시 버튼 "치킨 업종에서 지금 가장 위험한 브랜드는?"이 "브랜드를 찾지 못했습니다"로
+       끝났고, 추이를 물어도 공시 이력 표가, 비교를 물어도 비교표가 빠졌다. "안녕하세요"
+       에도 같은 실패 문구가 나갔다. 키가 없는 공개 데모에서는 이것이 곧 첫인상이다.
+       → 모은 재료는 전부 표로 보여 주고, 인사·범위 질문에는 쓰는 법을 안내한다.
+    """
+    del question
+    if intent in ("greeting", "capability", "off_domain"):
+        return CAPABILITY_TEXT
+    facts = [f for f in (facts or []) if f.get("위험등급")]
+    if not facts and not evidence and not industry:
+        return ("질문에서 브랜드나 업종을 찾지 못했습니다. **FRANSCORE 화면 검색창**에서 "
+                "브랜드 이름을 확인하시거나, 아래처럼 물어보십시오.\n\n" + CAPABILITY_TEXT)
+    parts: list[str] = []
+
+    # 업종 표는 업종을 물었을 때만 — "메가커피와 컴포즈커피" 비교 질문에서 '커피'가 업종어로
+    # 잡혀 비교표보다 업종 순위가 먼저 나오면 질문과 다른 답이 된다.
+    if industry and (intent == "industry" or not facts):
+        parts.append(f"### {industry['업종']} 업종 — 평가 {industry['평가_브랜드수']:,}개 중 "
+                     f"주의 {industry['주의등급_브랜드수']:,}개")
+        parts.append(f"브랜드 리스크 중간값 {industry['브랜드_리스크_중간값']} · 가맹점 수 중간값 "
+                     f"{industry.get('가맹점_중간값') or '-'}개. 아래는 **등급 → 1년 내 악화 위험 × "
+                     "가맹점 수** 순서입니다(점검 큐와 같은 규칙).\n")
+        parts += _md_table(industry.get("위험_상위_브랜드") or [],
+                           ["브랜드", "등급", "상태", "브랜드_리스크", "가맹점수"],
+                           labels={"브랜드_리스크": "브랜드 리스크", "가맹점수": "가맹점"})
+        parts.append("")
+
+    if len(facts) >= 2:
+        parts.append("### 한눈에 비교")
+        parts += _md_table([{
+            "브랜드": f.get("brand_name"), "등급": f.get("위험등급"),
+            "브랜드 리스크": f.get("브랜드_리스크"), "가맹점": f.get("가맹점수"),
+            "위험 소견": sum(1 for s in (f.get("진단소견") or []) if s.get("구분") == "risk"),
+            "본부 재무": "확인됨" if f.get("본부재무_억원") else "확인 못 함",
+        } for f in facts], ["브랜드", "등급", "브랜드 리스크", "가맹점", "위험 소견", "본부 재무"])
+        parts.append("")
+
     for f in facts:
         parts.append(f"### {f.get('brand_name')}")
-        if f.get("위험등급"):
-            parts.append(
-                f"- 위험등급 **{f['위험등급']}** · 브랜드 리스크 "
-                f"{f.get('브랜드_리스크')} ({f.get('평가연도')}년 공시 기준)")
-            parts.append(f"- 업종 {f.get('업종')} · 가맹점 {f.get('가맹점수'):,}개")
-        for s in (f.get("진단소견") or [])[:6]:
-            if s["구분"] == "risk":
-                parts.append(f"- {s['내용']}")
+        parts.append(f"- 등급 **{f['위험등급']}** · 브랜드 리스크 {f.get('브랜드_리스크')} "
+                     f"({f.get('평가연도')}년 공시 기준, 평가 대상 중 상위 {f.get('전체중_상위') or '-'})")
+        n = f.get("가맹점수")
+        parts.append(f"- 업종 {f.get('업종')} · 가맹점 {f'{n:,}' if n else '-'}개"
+                     + (f" · 가맹본부 {f['가맹본부']}" if f.get("가맹본부") else ""))
+        risks = [s for s in (f.get("진단소견") or f.get("관련_소견") or [])
+                 if s.get("구분") == "risk"][:5]
+        if risks:
+            parts.append("- **주요 소견**")
+            parts += [f"  - [{s.get('영역')}] {s['내용']}" for s in risks]
+        if f.get("공시이력"):
+            parts.append("\n**공시 추이**\n")
+            parts += _md_table(f["공시이력"], ["연도", "가맹점수", "신규개점", "계약종료", "계약해지",
+                                              "점포당_연매출_만원"])
+        if f.get("본부재무_억원"):
+            parts.append("\n**가맹본부 재무 (억원)**\n")
+            parts += _md_table(f["본부재무_억원"], ["결산연도", "자산", "부채", "자본", "매출",
+                                                 "영업이익", "순이익", "감사의견"])
+        d = f.get("네이버_검색수요")
+        if d and d.get("브랜드_최근12개월_증감"):
+            parts.append(f"\n- 검색수요(최근 12개월) {d['브랜드_최근12개월_증감']} · "
+                         f"'{d.get('카테고리')}' 카테고리 {d.get('카테고리_최근12개월_증감') or '-'}")
         parts.append("")
+
     if evidence:
         parts.append("### 참고 문서")
         for e in evidence[:4]:
             parts.append(f"- ({e['출처']}) {e['내용'][:160]}…")
-    del question
     return "\n".join(parts)
 
 
@@ -583,7 +660,8 @@ def answer(cfg: dict, question: str, history: list[dict] | None = None) -> dict:
     if not llm.is_enabled(cfg):
         # ⚠️ 여기에 intent 를 넘기던 버그가 있었다. reason 자리에 'greeting' 같은 값이
         #    들어가면 사전 조회가 빗나가 원인과 무관한 기본 문구가 나간다.
-        return {"text": _no_llm_notice("no_key", sel, evidence, question),
+        return {"text": _no_llm_notice("no_key", sel or facts, evidence, question,
+                                       industry=industry, intent=intent),
                 "brands": brands, "facts": facts, "intent": intent,
                 "evidence": evidence, "llm_used": False, "reason": "no_key"}
 
@@ -612,7 +690,7 @@ def answer(cfg: dict, question: str, history: list[dict] | None = None) -> dict:
     # 인사·범위 밖 질문은 길 이유가 없다 — 토큰을 줄이면 응답도 빨라진다
     budget = 700 if intent in ("greeting", "capability", "off_domain") else None
     try:
-        text, meta = llm.generate(cfg, system=system, user=user, max_tokens=budget)
+        text, meta = llm.generate(_interactive(cfg), system=system, user=user, max_tokens=budget)
         return {"text": text, "brands": brands, "facts": facts, "intent": intent,
                 "industry": industry, "evidence": evidence,
                 "llm_used": True, "model": meta.get("model")}
@@ -632,24 +710,40 @@ def answer(cfg: dict, question: str, history: list[dict] | None = None) -> dict:
         else:
             reason = "error"
         log.warning("상담 답변 생성 실패(%s): %s", reason, str(exc)[:200])
-        return {"text": _no_llm_notice(reason, sel, evidence, question),
+        return {"text": _no_llm_notice(reason, sel or facts, evidence, question,
+                                       industry=industry, intent=intent),
                 "brands": brands, "facts": facts, "intent": intent,
                 "evidence": evidence, "llm_used": False, "reason": reason,
                 "error": str(exc)[:200]}
 
 
+def _interactive(cfg: dict) -> dict:
+    """대화형 답변용 LLM 설정 — 배치용 재시도·타임아웃을 그대로 쓰지 않는다.
+
+    ⚠️ config 의 llm 설정(timeout 90초 · 재시도 6회 · 대기 4초)은 일간 배치의 뉴스 추출에
+       맞춘 값이다. 사람이 기다리는 화면에 그대로 쓰면 네트워크 장애 때 스피너가 몇 분씩
+       돈다. 상담에는 `chat_timeout_sec`·`chat_max_retries`(기본 30초·2회)를 쓴다.
+    """
+    lcfg = dict(cfg.get("llm") or {})
+    lcfg["timeout_sec"] = float(lcfg.get("chat_timeout_sec", 30))
+    lcfg["max_retries"] = int(lcfg.get("chat_max_retries", 2))
+    lcfg["retry_backoff_sec"] = min(float(lcfg.get("retry_backoff_sec", 2.0)), 2.0)
+    return {**cfg, "llm": lcfg}
+
+
 def _no_llm_notice(reason: str, facts: list[dict], evidence: list[dict],
-                   question: str) -> str:
+                   question: str, industry: dict | None = None, intent: str | None = None) -> str:
     """모델을 못 쓸 때의 안내 — **원인을 정확히** 말한다.
 
     예전에는 어떤 실패든 "답변 생성 모델이 연결되지 않았습니다"로 표시했다.
     키는 멀쩡한데 무료 한도(429)에 걸린 경우까지 '연결 안 됨'이라고 하면
     사용자가 키 설정을 의심하며 엉뚱한 곳을 고치게 된다.
     """
+    if intent in ("greeting", "capability", "off_domain"):
+        return CAPABILITY_TEXT              # 인사에 '모델 없음' 경고부터 내밀 이유가 없다
     head = {
-        "no_key": ("답변 생성 모델이 설정되지 않았습니다. "
-                   "`GEMINI_API_KEY` 를 등록하면 대화형 답변을 받을 수 있습니다. "
-                   "아래는 수집된 사실입니다."),
+        "no_key": ("답변 생성 모델(Gemini)이 연결되지 않은 데모라, 질문에 해당하는 "
+                   "**공시·재무·소견을 정리**해 보여드립니다."),
         "rate_limit": ("등록된 키가 모두 **분당 호출 한도**에 걸렸습니다. "
                        "**1~2분 뒤 다시 물어보시면 정상 동작합니다.** "
                        "예비 키를 `GEMINI_API_KEY_2` 로 등록해 두면 자동으로 넘어갑니다. "
@@ -670,7 +764,5 @@ def _no_llm_notice(reason: str, facts: list[dict], evidence: list[dict],
         "auth": ("등록된 키가 인증을 통과하지 못했습니다(만료·폐기·권한 없음). "
                  "키를 다시 발급해 등록해 주십시오. 아래는 수집된 사실입니다."),
     }.get(reason, "답변 생성 중 문제가 발생했습니다. 아래는 수집된 사실입니다.")
-    body = _fallback(facts, evidence, question)
-    # _fallback 의 첫 줄은 예전 안내문이므로 걷어내고 정확한 안내로 바꾼다
-    lines = [ln for ln in body.splitlines() if not ln.startswith("※")]
-    return f"※ {head}\n\n" + "\n".join(lines).lstrip()
+    body = _fallback(facts, evidence, question, industry=industry, intent=intent)
+    return f"※ {head}\n\n" + body.lstrip()
