@@ -19,16 +19,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src import grading, theme
+from src import grading, guidance, theme
 from src.common import load_config
 
 GRADE_KR = {"High": "주의", "Medium": "관찰", "Low": "안정"}
-GRADE_ACTION = {
-    "High": "신규 취급 전 최근 공시와 본부 재무를 함께 확인하고, "
-            "이 브랜드에 나간 여신 총액이 한도 안인지 점검합니다.",
-    "Medium": "분기 단위로 점포 수와 계약종료율의 방향을 확인합니다.",
-    "Low": "정기 모니터링을 유지합니다.",
-}
+# 등급별 조치 문구는 src/guidance.py 한 곳에서 온다 — 화면·참고의견서·일괄 조회가 같은 말을 한다.
+# (예전에는 이 파일과 memo_llm.py 에 따로 있어 문구가 어긋났다.)
+GRADE_ACTION = {g: guidance.grade_action(g) for g in ("High", "Medium", "Low")}
 CATEGORY_ICON = {"성장": "▮", "계약": "▮", "매출": "▮", "재무": "▮",
                  "구조": "▮", "수요": "▮", "평판": "▮"}
 
@@ -548,7 +545,9 @@ def esc(s) -> str:
     ⚠️ 브랜드명 "꿀스커피GGUL'S COFFEE" 의 작은따옴표가 `alt='...'` 속성을 끊어
        로고 타일이 깨졌다. 브랜드명·뉴스 본문처럼 데이터에서 오는 글자는 전부 여기를 거친다.
     """
-    return html.escape("" if s is None else str(s), quote=True)
+    # 공시 원문에 이미 이스케이프된 이름이 섞여 온다("Han&#39;s", "bread&amp;co").
+    # 그대로 한 번 더 이스케이프하면 화면에 '&amp;#39;' 가 글자로 찍힌다 — 먼저 풀고 다시 싼다.
+    return html.escape(html.unescape("" if s is None else str(s)), quote=True)
 
 
 # 부문별 진단 — 반증에서 **성립이 확인된 3부문만** 쓴다.
@@ -832,6 +831,44 @@ def risk_basis_label(row) -> str:
                 f"{hit['rate'] * 100:.1f}%</b>")
     shown = risk_pct(row.get("deterioration_1y"))
     return f"{RISK_LABEL} {shown:.1f}%" if shown is not None else RISK_LABEL
+
+
+@st.cache_data(show_spinner=False)
+def _critical_map(m: float) -> dict[str, list[dict]]:
+    f = load_findings()
+    if f is None or f.empty:
+        return {}
+    hit = f[f["code"].isin(guidance.CRITICAL_CODES)]
+    out: dict[str, list[dict]] = {}
+    for bid, g in hit.groupby(hit["brand_id"].astype(str)):
+        out[bid] = [{"code": r["code"], "title": r["title"], "detail": r["detail"],
+                     "why": guidance.CRITICAL_RATIONALE.get(r["code"], "")}
+                    for r in guidance.critical_findings(g)]
+    return out
+
+
+def critical_map() -> dict[str, list[dict]]:
+    """브랜드ID → 중대 신호 목록 (무거운 순서). 등급과 무관하게 먼저 확인할 소견이다.
+
+    ⚠️ 본부 계속기업 불확실성·자본잠식·정보공개서 등록취소가 있는데도 모형 등급이 '안정'
+       이라 점검 큐(주의·관찰만 받는다)와 목록 어디에도 뜨지 않는 브랜드가 19개 있었다.
+       모형 확률은 공시 지표의 추세를 보고, 이 신호들은 사건 그 자체다 — 따로 올려야 한다.
+    """
+    p = out_dir() / "brand_diagnosis.parquet"
+    return _critical_map(_mtime(p))
+
+
+def critical_banner_html(items: list[dict]) -> str:
+    if not items:
+        return ""
+    rows = "".join(
+        f"<div style='margin-top:6px'><b>{esc(it['title'])}</b>"
+        f"<span style='color:{theme.TEXT_SUB}'> — {esc(it['why'])}</span></div>" for it in items)
+    return (f"<div style='margin-top:12px;padding:11px 14px;border-radius:{theme.RADIUS_MD};"
+            f"background:{theme.DANGER_SOFT};border:1px solid #EFC9C4;font-size:{theme.FS_BASE};"
+            f"line-height:1.55;color:{theme.TEXT}'>"
+            f"<div style='font-weight:800;color:{theme.DANGER}'>중대 신호 {len(items)}건 — "
+            f"등급과 무관하게 먼저 확인하십시오</div>{rows}</div>")
 
 
 def population_note(row) -> str:

@@ -225,6 +225,9 @@ def _watchlist(df: pd.DataFrame) -> None:
                         f"margin-left:8px'>소견 {int(d['n_risk'])}건</span></div>",
                         unsafe_allow_html=True)
             st.markdown(C.population_note(r), unsafe_allow_html=True)
+            crit = C.critical_map().get(bid)
+            if crit:
+                st.markdown(C.critical_banner_html(crit), unsafe_allow_html=True)
             if st.button("진단 근거 보기", key=f"w{i}_{bid}", use_container_width=True):
                 select_brand(bid)
                 st.rerun()
@@ -407,6 +410,8 @@ def _detail_screen(r: pd.Series) -> None:
             f"{C.GRADE_ACTION.get(grade, '')}</div>", unsafe_allow_html=True)
         st.markdown(_summary_sentence(r), unsafe_allow_html=True)
         st.markdown(C.population_note(r), unsafe_allow_html=True)
+        st.markdown(C.critical_banner_html(C.critical_map().get(bid, [])), unsafe_allow_html=True)
+        _report_actions(bid, name)
     with h2:
         theme.plot(C.risk_gauge(float(r["deterioration_1y"])), key=f"g_{bid}")
         rank = r.get("deterioration_rank_pct")
@@ -437,6 +442,50 @@ def _detail_screen(r: pd.Series) -> None:
     with tabs[4]:
         _tab_demand(bid, name)
     C.refresh_footer()
+
+
+@st.cache_data(show_spinner=False, max_entries=64)
+def _report_html(brand_id: str, m: float) -> str:
+    """참고의견서 HTML — 같은 브랜드·같은 산출물이면 다시 만들지 않는다."""
+    from src.report import build_brand_report_html, load_brand_context
+    return build_brand_report_html(load_brand_context(brand_id))
+
+
+def _safe_file(name: str) -> str:
+    # 'NAME:…' 형태 ID·브랜드명의 ':' '/' 등은 Windows 파일명에 쓸 수 없다
+    return re.sub(r'[\\/:*?"<>|]+', "_", str(name)).strip() or "brand"
+
+
+def _report_actions(bid: str, name: str) -> None:
+    """상세 화면의 업무 동작 — 품의서에 붙일 참고의견서, 동료에게 보낼 링크.
+
+    심사역에게 화면은 결론이 아니다. 결론은 여신 품의서에 첨부되는 문서다. 화면을 캡처해
+    붙이게 하지 말고, 같은 근거를 인쇄용 문서로 바로 내준다(브라우저에서 PDF 로 저장).
+    """
+    c1, c2 = st.columns([1.25, 1])
+    with c1:
+        try:
+            doc = _report_html(bid, C._mtime(C.out_dir() / "brand_diagnosis.parquet"))
+        except Exception:                      # 문서 생성 실패가 상세 화면을 죽이면 안 된다
+            st.caption("참고의견서를 만들지 못했습니다.")
+        else:
+            st.download_button(
+                "참고의견서 내려받기 (인쇄·PDF용)", doc.encode("utf-8"),
+                file_name=f"FranSCORE_참고의견서_{_safe_file(name)}.html", mime="text/html",
+                type="primary", use_container_width=True, key=f"op_{bid}", on_click="ignore",
+                help="브라우저에서 열어 인쇄(Ctrl/⌘+P) → 'PDF로 저장'하면 여신 품의서에 첨부할 수 있습니다. "
+                     "등급·소견·공시 추이·본부 재무·확인 서류 체크리스트가 한 문서에 들어갑니다.")
+    with c2:
+        base = ""
+        try:
+            base = str(st.context.url or "").split("?")[0]
+        except Exception:
+            base = ""
+        link = f"{base}?brand={bid}" if base else f"?brand={bid}"
+        st.markdown(f"<div style='font-size:{theme.FS_XS};color:{theme.TEXT_MUTED};margin-top:4px'>"
+                    f"이 브랜드 링크 — 복사해 메신저·메모로 보낼 수 있습니다</div>"
+                    f"<code style='font-size:{theme.FS_XS};word-break:break-all'>{C.esc(link)}</code>",
+                    unsafe_allow_html=True)
 
 
 def _summary_sentence(r: pd.Series) -> str:

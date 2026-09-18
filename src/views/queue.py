@@ -104,7 +104,13 @@ def render() -> None:
         "담당자를 지정하고 확인 결과를 기록하면 목록에서 정리됩니다.",
         eyebrow="업무")
 
-    work = df[df["risk_grade"].isin(["High", "Medium"])].copy()
+    # 주의·관찰 + **중대 신호가 있는 브랜드는 등급과 무관하게** 큐에 올린다
+    # (계속기업 불확실성·자본잠식·등록취소가 있는데 '안정'이라 큐 밖에 있던 브랜드가 있었다).
+    crit = C.critical_map()
+    work = df[df["risk_grade"].isin(["High", "Medium"])
+              | df["brand_id"].astype(str).isin(crit)].copy()
+    work["중대 신호"] = work["brand_id"].astype(str).map(
+        lambda b: " · ".join(x["title"] for x in crit.get(b, [])))
     if diag is not None and not diag.empty:
         work = work.merge(
             diag[["brand_id", "headline_detail", "n_risk", "n_high", "categories",
@@ -119,7 +125,10 @@ def render() -> None:
         lambda b: state.get(b, {}).get("status", "미착수"))
     work["담당"] = work["brand_id"].astype(str).map(
         lambda b: state.get(b, {}).get("owner", ""))
+    # 중대 신호 브랜드를 먼저, 그 안팎은 같은 우선순위 규칙(위험 × 가맹점 수)으로
     work = C.prioritize(work)
+    work = (work.assign(_crit=work["중대 신호"].astype(str).str.len() > 0)
+                .sort_values("_crit", ascending=False, kind="stable"))
 
     done = work[work["처리상태"].isin(["조치 완료", "이상 없음"])]
     k1, k2, k3, k4 = st.columns(4)
@@ -141,14 +150,18 @@ def render() -> None:
 
 def _worklist(work: pd.DataFrame) -> None:
     f1, f2, f3 = st.columns([1.4, 1.4, 1.2])
-    grades = f1.multiselect("등급", ["High", "Medium"], default=["High"],
+    grades = f1.multiselect("등급", ["High", "Medium", "Low"], default=["High"],
                             format_func=lambda g: C.GRADE_KR.get(g, g))
     stats = f2.multiselect("처리상태", STATUS, default=["미착수", "검토 중"])
     min_stores = f3.number_input("최소 가맹점 수", min_value=0, value=0, step=10)
+    with_crit = st.checkbox("중대 신호 브랜드는 등급과 무관하게 포함", value=True,
+                            help="본부 계속기업 불확실성·자본잠식·정보공개서 등록취소처럼 사건 자체가 "
+                                 "위험 신호인 브랜드입니다. 모형 등급이 낮아도 먼저 확인합니다.")
 
     view = work
+    is_crit = view["중대 신호"].astype(str).str.len() > 0
     if grades:
-        view = view[view["risk_grade"].isin(grades)]
+        view = view[view["risk_grade"].isin(grades) | (is_crit if with_crit else False)]
     if stats:
         view = view[view["처리상태"].isin(stats)]
     if min_stores > 0:
@@ -159,8 +172,8 @@ def _worklist(work: pd.DataFrame) -> None:
     watch = C.STATE_LABEL["요주의"]
     st.caption(
         f"조건에 맞는 **{len(view):,}건** · 상위 20건을 펼쳐 둡니다. "
-        "순서는 **1년 내 악화 위험 × 가맹점 수**입니다 — 같은 위험이라도 점포가 많으면 "
-        "은행 익스포저가 크기 때문입니다.")
+        "순서는 **중대 신호 우선 → 1년 내 악화 위험 × 가맹점 수**입니다 — 같은 위험이라도 "
+        "점포가 많으면 은행 익스포저가 크기 때문입니다.")
     if n_watch:
         st.caption(
             f"이 중 **{n_watch:,}건({n_watch / max(len(view), 1) * 100:.0f}%)이 {watch}** — "
@@ -200,6 +213,9 @@ def _worklist(work: pd.DataFrame) -> None:
                 note_html = C.population_note(r)
                 if note_html:
                     st.markdown(note_html, unsafe_allow_html=True)
+                crit_items = C.critical_map().get(bid)
+                if crit_items:
+                    st.markdown(C.critical_banner_html(crit_items), unsafe_allow_html=True)
             with b:
                 st.text_input("담당자", value=cur.get("owner", ""), key=f"own_{bid}",
                               placeholder="이름 입력", on_change=_on_edit, args=(bid, name))
@@ -236,6 +252,7 @@ def _export_frame(work: pd.DataFrame, state: dict) -> pd.DataFrame:
             "위험 소견 수": pd.to_numeric(r.get("n_risk"), errors="coerce"),
             "중대 소견 수": pd.to_numeric(r.get("n_high"), errors="coerce"),
             "위험 영역": r.get("categories"),
+            "중대 신호": r.get("중대 신호") or "",
             "대표 소견": r.get("headline_detail"),
             "처리상태": s.get("status", "미착수"),
             "담당자": s.get("owner", ""),
