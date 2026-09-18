@@ -3,7 +3,7 @@
   "n_brands": 1442,
   "n_findings": 9370,
   "avg_findings_per_brand": 6.5,
-  "distinct_headlines": 41,
+  "distinct_headlines": 39,
   "distinct_finding_sets": 1081,
   "findings_by_code": {
     "HQ_NO_DATA": 1238,

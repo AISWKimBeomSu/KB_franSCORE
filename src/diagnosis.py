@@ -836,15 +836,23 @@ def r_hq_audit_opinion(ctx: Ctx) -> Finding | None:
     op = str(last.get("audit_opinion") or "").strip()
     if op in ("", "적정", "None", "nan"):
         return None
+    # ⚠️ 이 값은 감사보고서 본문 문자열에서 **자동 판독**한 것이고, 판독 정확도가 검증되지
+    #    않았다. 실측으로 의심스럽다: 최신연도 본부의 약 15%가 비적정으로 판독되고(실제
+    #    비율은 한 자릿수 초반), '의견거절' 판독 31곳의 계속기업 불확실성 비율이 0%로
+    #    '적정'(7%)보다 낮으며, 자본·순이익이 늘고 있는 본부도 2년 연속 '의견거절'로 읽혔다.
+    #    전기 의견을 언급한 기타사항 문단 등을 당기 의견으로 오인했을 가능성이 크다.
+    #    확인되지 않은 비적정 의견을 실명 브랜드의 '위험 소견'으로 단정해 공개할 수 없다.
+    #    → '확인 필요'(info)로 내리고 원문 확인을 요구한다. (모형 피처에는 쓰이지 않는다.)
     return Finding(
         code="HQ_AUDIT_OPINION", category="재무",
-        severity=_stale_severity(ctx, last, "High"), direction="risk",
-        title=f"감사의견 '{op}'",
-        detail=(f"{ctx.hq_company}의 {int(last['fiscal_year'])}년 감사의견이 "
-                f"'{op}'입니다. 적정의견이 아니라는 것은 재무제표 자체를 "
-                "그대로 믿기 어렵다는 뜻입니다." + _stale_note(ctx, last)),
+        severity="Medium", direction="info",
+        title="감사의견 원문 확인 필요",
+        detail=(f"{ctx.hq_company}의 {int(last['fiscal_year'])}년 감사보고서 본문에서 "
+                f"'{op}' 관련 문구가 자동 판독됐습니다. 자동 판독은 전기 감사의견 언급 등을 "
+                "당기 의견으로 오인할 수 있어 확정 사실로 보지 않습니다 — 감사보고서의 "
+                "'감사의견' 단락 원문으로 확인하십시오." + _stale_note(ctx, last)),
         source=_hq_source(last),
-        evidence={"audit_opinion": op})
+        evidence={"audit_opinion_parsed": op})
 
 
 def r_hq_revenue_decline(ctx: Ctx) -> Finding | None:
