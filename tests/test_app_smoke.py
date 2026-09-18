@@ -15,7 +15,7 @@ from streamlit.testing.v1 import AppTest
 
 ROOT = Path(__file__).resolve().parent.parent
 APP = str(ROOT / "src" / "app.py")
-MENUS = ["FRANSCORE", "점검 큐", "여신 포트폴리오", "AI 상담", "서비스 소개"]
+MENUS = ["FRANSCORE", "일괄 조회", "점검 큐", "여신 포트폴리오", "AI 상담", "서비스 소개"]
 
 
 @pytest.fixture(autouse=True)

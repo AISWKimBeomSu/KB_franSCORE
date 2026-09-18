@@ -29,6 +29,8 @@ MENU = {
     # '한눈에 보기'와 '브랜드 조회'는 같은 일의 두 단계여서 하나로 합쳤다 —
     # 목록에서 고르고, 고른 것을 자세히 본다. 화면을 오가며 이름을 다시 칠 이유가 없다.
     "FRANSCORE": ("franscore", "브랜드 리스크 현황과 상세 진단"),
+    # 심사역의 하루는 브랜드 하나가 아니라 신청 목록으로 시작한다 — 목록째 조회한다.
+    "일괄 조회": ("batch", "신청 목록 한 번에 진단"),
     "점검 큐": ("queue", "담당자 배정과 확인 결과 기록"),
     "여신 포트폴리오": ("portfolio", "쏠림·예상손실 실시간 점검"),
     "AI 상담": ("assistant", "자연어 질의와 근거 인용"),
@@ -98,8 +100,8 @@ def main() -> None:
             st.session_state["fs_selected"] = None
         st.session_state["_last_view"] = module_name
 
-    from src.views import about, assistant, franscore, portfolio, queue
-    modules = {"franscore": franscore, "queue": queue, "portfolio": portfolio,
+    from src.views import about, assistant, batch, franscore, portfolio, queue
+    modules = {"franscore": franscore, "batch": batch, "queue": queue, "portfolio": portfolio,
                "assistant": assistant, "about": about}
     modules[module_name].render()
 
