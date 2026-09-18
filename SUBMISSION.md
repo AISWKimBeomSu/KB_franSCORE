@@ -39,7 +39,7 @@ cd franscore
 # ① 코드·문서·산출물이 서로 맞는가
 python -m pytest tests -q                 # 기대: 31 passed
 python -m ruff check .                    # 기대: All checks passed!
-python tools/check_doc_numbers.py         # 기대: 문서 수치 170건 전부 일치
+python tools/check_doc_numbers.py         # 기대: 문서 수치 186건 전부 일치
 
 # ② 비밀값이 커밋에 섞이지 않았는가 (.env 는 gitignore 대상)
 git grep -nE "AIza[0-9A-Za-z_-]{30,}|AQ\.[0-9A-Za-z_-]{20,}" -- . ; echo "(위가 비어야 정상)"
@@ -85,16 +85,12 @@ grep -n "cron\|schedule:" .github/workflows/daily-refresh.yml   # 주석 안에�
 
 ### 저장소 공개 범위 — ⚠️ 반드시 확인
 
-현재 저장소는 **비공개(private)** 여야 한다. 두 가지 이유가 있다.
+제출 당시에는 두 가지 이유로 저장소를 비공개로 두었다 — 공정위 공개 미리보기 키가 코드에
+하드코딩돼 있었고, `data/raw/brand_master_*.json` 에 대표자 성명 84,368행이 있었다.
+**심사가 끝난 뒤 공개로 전환하면서 둘 다 정리했다.**
 
-1. `src/collect.py` 에 공정위 오픈API **공개 미리보기 키**가 하드코딩돼 있다
-   (data.go.kr 가 문서에 공개한 값이지만, 저장소에 박힌 채 공개하지는 않는다).
-2. `data/raw/brand_master_*.json` 에 공정위가 공개한 **대표자 성명 84,368행**이 들어 있다.
-   공개 자료이긴 하나, 개인 식별정보를 원본 그대로 재배포하지 않는다.
-
-**심사위원에게는 저장소를 비공개로 둔 채 협업자(collaborator)로 초대**하는 것이 안전하다.
-공개로 전환해야 한다면 위 두 가지를 먼저 정리해야 하고, 그 정리 자체가 커밋을 만들므로
-**반드시 제출 전에** 끝내야 한다.
+1. 미리보기 키는 코드에서 뺐다. 새로 수집할 때만 본인 키(`DATA_GO_KR_KEY`)가 필요하다.
+2. 대표자 성명은 수집 단계에서 버리고 기존 스냅샷에서도 삭제했다(산출물 영향 0 — `tests/test_privacy.py`).
 
 ### 키 재발급 권고
 

@@ -63,5 +63,5 @@
 | 버전 고정 | `requirements.txt` 정확한 버전 |
 | 원본 스냅샷 | `data/raw/` 보존 (API 변경에도 재현) — 대용량은 gzip |
 | 파라미터 단일 원천 | 전부 `config.yaml` |
-| 라벨 규칙 동결 | 학습 전 git 커밋(`cfcf164`)으로 증빙 |
+| 라벨 규칙 동결 | 학습 전 `config.yaml` 에 고정, 성능 확인 후 조정하지 않음 |
 | 산출물 격리 | `--demo`(스모크)·`--scope extended`(확장 트랙) 별 디렉토리 분리 |

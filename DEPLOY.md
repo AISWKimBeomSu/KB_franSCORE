@@ -26,14 +26,14 @@ https://share.streamlit.io/deploy?repository=AISWKimBeomSu%2FKB_franSCORE&branch
 | Branch | `main` |
 | Main file path | `src/app.py` |
 | Python version | **`3.13`** — `Advanced settings` 에서 **반드시 직접 지정** (아래 1-1-c) |
-| App URL | 원하는 주소 (예: `franscore`) |
+| App URL | 원하는 주소 (예: `kb-franscore`) |
 
 `Deploy!` 를 누르면 의존성 설치에 3~5분 걸립니다.
 완료되면 `https://<정한이름>.streamlit.app` 으로 누구나 접속할 수 있습니다.
 
-### 1-1-a. ⚠️ 비공개 저장소면 먼저 권한을 줘야 합니다 (실제로 여기서 막혔음)
+### 1-1-a. ⚠️ 저장소를 비공개로 바꿨다면 먼저 권한을 줘야 합니다 (실제로 여기서 막혔음)
 
-이 저장소는 **비공개(private)** 입니다. Streamlit Cloud 가 처음 GitHub 로그인 시
+이 저장소는 현재 **공개**입니다. 비공개로 운영한다면 — Streamlit Cloud 가 처음 GitHub 로그인 시
 받는 권한은 **공개 저장소까지만** 이고, GitHub 은 권한 없는 리소스에 404 를
 돌려주므로 배포 화면에 이렇게 뜹니다 — 저장소는 멀쩡한데도 그렇습니다.
 
