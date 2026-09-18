@@ -85,13 +85,11 @@ YEARS = list(range(2017, 2026))
 #   (tests/test_privacy.py 가 data/raw 에 이 필드가 다시 들어오는 것을 막는다.)
 PERSONAL_FIELDS: frozenset[str] = frozenset({"jnghdqrtrsRprsvNm"})
 
-# 공정위 가맹사업정보제공시스템(franchise.ftc.go.kr)의 공개 미리보기 페이지
-# (https://franchise.ftc.go.kr/openApi.do?service=FftcBrandFrcsStatsService)에
-# 내장·공개되어 있는 데모 인증키. 비밀키가 아니라 공정위가 공개 배포한 값이지만
-# 회전될 수 있으므로, 제출/운영 파이프라인은 반드시 본인 data.go.kr 키(DATA_GO_KR_KEY)를 사용할 것.
-_PUBLIC_PREVIEW_KEY = (
-    ""
-)
+# 공정위 가맹사업정보제공시스템(franchise.ftc.go.kr) 공개 미리보기 페이지에 내장된 데모 인증키는
+# 더 이상 코드에 두지 않는다. 비밀키는 아니지만 남이 발급한 키를 공개 저장소에 재배포할 이유가 없고,
+# 파이프라인은 data/raw 스냅샷만으로 돌기 때문에 키가 필요한 것은 **새로 수집할 때뿐**이다.
+# 그때는 본인 data.go.kr 키(DATA_GO_KR_KEY)를 쓴다. 데모키로 시험해 보려면 FTC_PREVIEW_KEY 에 넣는다.
+_PUBLIC_PREVIEW_KEY = os.environ.get("FTC_PREVIEW_KEY", "").strip()
 
 
 def get_service_key(cfg: dict) -> str:
@@ -99,12 +97,13 @@ def get_service_key(cfg: dict) -> str:
     if key:
         log.info("serviceKey: 환경변수 %s 사용", cfg["collect"]["service_key_env"])
         return key
+    if _PUBLIC_PREVIEW_KEY:
+        log.warning("serviceKey 미설정 — FTC_PREVIEW_KEY(공정위 공개 미리보기 데모키)로 대체합니다.")
+        return _PUBLIC_PREVIEW_KEY
     log.warning(
-        "serviceKey 미설정 — 공정위 공개 미리보기 데모키로 대체합니다. "
-        "제출 전 data.go.kr에서 본인 키를 발급받아 %s 에 설정하세요 (개발단계 자동승인).",
-        cfg["collect"]["service_key_env"],
-    )
-    return _PUBLIC_PREVIEW_KEY
+        "serviceKey 미설정 — 스냅샷이 없는 연도는 새로 수집하지 못합니다. data.go.kr 에서 "
+        "본인 키를 발급받아 %s 에 설정하세요 (개발단계 자동승인).", cfg["collect"]["service_key_env"])
+    return ""
 
 
 def _fetch_page(url: str, params: dict, cfg: dict) -> dict:
@@ -201,6 +200,9 @@ def collect_all(cfg: dict, services: list[str] | None = None, years: list[int] |
             if snap.exists():
                 log.info("스냅샷 존재 → 생략: %s", snap.name)
                 paths.append(snap)
+                continue
+            if not key:
+                log.warning("%s yr=%d 스냅샷 없음 · 키 없음 → 건너뜀", service, year)
                 continue
             try:
                 data = fetch_service_year(service, year, key, cfg)

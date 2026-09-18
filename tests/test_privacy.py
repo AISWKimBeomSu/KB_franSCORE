@@ -74,8 +74,8 @@ def test_collect_all_writes_snapshot_without_personal_fields(
         return {"resultCode": "00", "totalCount": 1, "items": [dict(SAMPLE)]}
 
     monkeypatch.setattr(collect, "_fetch_page", fake_fetch_page)
-    monkeypatch.delenv("FRANSCORE_TEST_NO_KEY", raising=False)
-    cfg = {"paths": {"raw": tmp_path}, "collect": {"service_key_env": "FRANSCORE_TEST_NO_KEY"}}
+    monkeypatch.setenv("FRANSCORE_TEST_KEY", "dummy-key")            # 모의 응답이라 값은 쓰이지 않는다
+    cfg = {"paths": {"raw": tmp_path}, "collect": {"service_key_env": "FRANSCORE_TEST_KEY"}}
 
     out = collect.collect_all(cfg, services=[service], years=[2025])
     (snap,) = out[service]

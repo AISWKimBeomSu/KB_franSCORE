@@ -133,7 +133,8 @@ def main() -> int:
         from src.collect import _PUBLIC_PREVIEW_KEY
         print("대조군 (키 체계가 다르다는 것을 보이는 검사):")
         classify(DEMO_KEY, "공정위 공개 데모키(sampleKey)")
-        classify(_PUBLIC_PREVIEW_KEY, "data.go.kr 계열 키")
+        if _PUBLIC_PREVIEW_KEY:                     # FTC_PREVIEW_KEY 환경변수에 넣었을 때만
+            classify(_PUBLIC_PREVIEW_KEY, "data.go.kr 계열 키")
         classify("THIS_IS_NOT_A_KEY", "아무 문자열")
         print("\n→ data.go.kr 키가 '아무 문자열'과 같은 판정을 받으면 별도 체계다.")
         return 0
