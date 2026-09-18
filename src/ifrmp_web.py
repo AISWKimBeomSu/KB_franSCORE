@@ -544,15 +544,16 @@ def ingest_saved(cfg: dict, src_dir: str) -> dict:
         #    그래서 첫 일치를 그냥 쓰면 영업표지 값이 '대표자' 가 된다 —
         #    실측으로 19건 **전부** 그렇게 들어갔다. 표의 머리글 낱말이 잡히면
         #    버리고 다음 일치를 본다.
+        # 대표자 성명은 읽지 않는다 — 크롤 경로(아래 collect)와 같은 규칙(개인정보 최소수집).
+        # 예전에는 이 수동 저장 경로만 성명을 뽑아 raw JSON 에 남겼다. 코드 어디에서도 쓰지 않는 값이다.
         for key, pat in (("brand_name", r"영업표지\s*([^\s<]{1,40})"),
-                         ("corp_name", r"상\s*호\s*([^\s<]{1,40})"),
-                         ("ceo", r"대표자\s*(?:명)?\s*([^\s<]{1,20})")):
+                         ("corp_name", r"상\s*호\s*([^\s<]{1,40})")):
             for hit in re.finditer(pat, flat):
                 v = _txt(hit.group(1))
                 if v and v not in _FORM_LABELS:
                     brand.setdefault(key, v)
                     break
-        brand.update({"reg_no": reg_no, "source": SOURCE, "_source_file": p.name,
+        brand.update({"reg_no": reg_no, "ceo": "", "source": SOURCE, "_source_file": p.name,
                       "_collected_by": "manual_browser_save"})
 
         # ⚠️ 덮어쓰지 않고 **병합**한다. 주문형 조회(fetch_brand)로 이미 받아 둔 건에는

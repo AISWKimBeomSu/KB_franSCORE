@@ -48,7 +48,7 @@ for _s in (sys.stdout, sys.stderr):
     with contextlib.suppress(AttributeError, OSError):
         _s.reconfigure(encoding="utf-8", errors="replace")
 
-from src.collect import SERVICES  # noqa: E402
+from src.collect import SERVICES, drop_personal_fields  # noqa: E402
 from src.common import get_logger, load_config, load_secrets  # noqa: E402
 
 log = get_logger("snapshot_drift")
@@ -106,7 +106,9 @@ def _fetch_live(spec: dict, key: str, year: int) -> tuple[list[dict] | None, str
             return None, str(hdr.get("errMsg") or "게이트웨이 오류")
         if str(body.get("resultCode", "")) not in ("00", "0"):
             return None, f"resultCode={body.get('resultCode')} {body.get('resultMsg', '')}"
-        items = body.get("items") or []
+        # 스냅샷은 저장 전에 개인 성명 필드를 버린다(src.collect.PERSONAL_FIELDS).
+        # 라이브 응답도 같은 규칙으로 걸러야 모든 행이 '값 변경'으로 잡히는 가짜 드리프트가 없다.
+        items = [drop_personal_fields(it) for it in (body.get("items") or [])]
         rows += items
         total = int(body.get("totalCount") or 0)
         if not items or len(rows) >= total:

@@ -10,6 +10,7 @@
 
 커버리지: yr 2017~2025 (yr=정보공개서 기준연도, 수치는 통상 직전 회계연도 실적).
 스냅샷 원칙: 원본 JSON을 data/raw/에 그대로 보존 (재현성·정직성), 존재 시 재호출 생략.
+            단, 개인 성명 필드(PERSONAL_FIELDS)만은 저장 전에 버린다 (개인정보 최소수집).
 """
 from __future__ import annotations
 
@@ -44,6 +45,7 @@ SERVICES: dict[str, dict] = {
     },
     # 15125467 브랜드 등록 정보 — 브랜드관리번호(brandMnno)·가맹본부관리번호·사업자등록번호.
     # 명세 §2.2 "연결 키 = 브랜드 관리번호(우선)" 를 충족하는 정합 마스터.
+    # 응답의 jnghdqrtrsRprsvNm(대표자 성명)은 저장하지 않는다 — PERSONAL_FIELDS 참조.
     "brand_master": {
         "url": "https://apis.data.go.kr/1130000/FftcBrandRlsInfo2_Service/getBrandinfo",
         "year_param": "jngBizCrtraYr",
@@ -75,6 +77,13 @@ SERVICES: dict[str, dict] = {
 }
 
 YEARS = list(range(2017, 2026))
+
+# 개인정보 최소수집 — 응답에 섞여 오는 개인 성명 필드는 스냅샷에 쓰기 전에 버린다.
+#   jnghdqrtrsRprsvNm : 15125467(brand_master)의 가맹본부 대표자 성명. 공정위 공개 자료라도
+#                       개인 식별정보를 원본째 재배포하지 않는다 (data/raw 는 통째로 커밋된다).
+#   코드 참조 0건이라 산출물 영향이 없다 — 패널·피처·점수 어디에도 들어가지 않는다.
+#   (tests/test_privacy.py 가 data/raw 에 이 필드가 다시 들어오는 것을 막는다.)
+PERSONAL_FIELDS: frozenset[str] = frozenset({"jnghdqrtrsRprsvNm"})
 
 # 공정위 가맹사업정보제공시스템(franchise.ftc.go.kr)의 공개 미리보기 페이지
 # (https://franchise.ftc.go.kr/openApi.do?service=FftcBrandFrcsStatsService)에
@@ -145,6 +154,11 @@ def _extract_items(body: dict) -> list[dict]:
     return items or []
 
 
+def drop_personal_fields(item: dict) -> dict:
+    """응답 item 에서 PERSONAL_FIELDS 를 뺀 사본. 나머지 키·값·순서는 그대로 둔다."""
+    return {k: v for k, v in item.items() if k not in PERSONAL_FIELDS}
+
+
 def fetch_service_year(service: str, year: int, key: str, cfg: dict) -> dict:
     """서비스×연도 전체 페이지 수집 → {"totalCount", "items"} 반환."""
     spec = SERVICES[service]
@@ -162,7 +176,8 @@ def fetch_service_year(service: str, year: int, key: str, cfg: dict) -> dict:
         }
         body = _fetch_page(spec["url"], params, cfg)
         total = int(body.get("totalCount", 0))
-        items = _extract_items(body)
+        # 개인 성명은 메모리에 쌓기 전에 버린다 → 어떤 스냅샷에도 기록되지 않는다
+        items = [drop_personal_fields(it) for it in _extract_items(body)]
         all_items.extend(items)
         log.info("%s yr=%d page=%d: +%d건 (누적 %d / 총 %d)", service, year, page, len(items), len(all_items), total)
         if len(all_items) >= total or not items:
