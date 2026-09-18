@@ -1,0 +1,23 @@
+{
+  "basis": "시점 밖 보정 — 운영 모형 점수(학습 연도 제외)를 선행 연도로 적합해 후행 연도에 적용",
+  "years": [
+    2023
+  ],
+  "n": 740,
+  "events": 60,
+  "hosmer_lemeshow": {
+    "statistic": 11.848,
+    "df": 8,
+    "p_value": 0.158117,
+    "bins": 10,
+    "verdict": "보정 적정(기각 못함)"
+  },
+  "spiegelhalter": {
+    "z": -1.0769,
+    "p_value": 0.281536,
+    "verdict": "보정 적정"
+  },
+  "ece": 0.035279,
+  "mean_predicted": 0.099666,
+  "observed": 0.081081
+}

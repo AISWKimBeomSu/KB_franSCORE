@@ -1,0 +1,95 @@
+# 매일 1회 브랜드 리스크 진단을 다시 산출하고 결과를 저장소에 반영한다.
+#
+# 왜 GitHub Actions 인가
+#   Streamlit Community Cloud 는 앱 컨테이너 안에서 배치를 돌릴 수단이 없다.
+#   저장소가 갱신되면 앱이 자동으로 다시 뜨므로, 갱신은 여기서 하고 결과만 커밋한다.
+#
+# 시크릿 (Settings → Secrets and variables → Actions)
+#   GEMINI_API_KEY        뉴스 본문에서 사건을 구조화 추출. 없으면 규칙기반 키워드 폴백.
+#   GEMINI_API_KEY_2..5   주 키가 무료 한도(429)에 걸리면 순서대로 갈아탄다.
+#   NAVER_CLIENT_ID/SECRET  구 개발자센터 — 뉴스 **본문 요약**까지 확보(무료 25,000회/일).
+#                           없으면 Google News RSS 로 떨어져 **제목만** 본다.
+#   NCP_API_KEY_ID/NCP_API_KEY  NAVER API HUB — 검색 + 검색어트렌드(수요 지표).
+#   DART_API_KEY          가맹본부 재무. 일간 배치에서는 쓰지 않는다(연 1회 공시).
+#
+# ⚠️ 시크릿이 없어도 이 워크플로는 성공으로 끝난다 — 폴백이 동작하기 때문이다.
+#    그래서 아래 '자격증명 점검' 단계가 **무엇이 없어서 무엇이 폴백으로 돌았는지**를
+#    로그와 outputs/refresh_state.json 에 남긴다. 조용한 성능 저하를 금지한다.
+name: daily-refresh
+
+on:
+  # 🛑 심사 기간 동안 **자동 스케줄을 끈다.**
+  #
+  #   공모 안내문: "구현코드의 경우 깃허브 링크 제출 가능하나, 참가접수기간 이후
+  #   수정·변경 이력 확인 시 심사 대상 제외."
+  #
+  #   이 워크플로는 산출물을 실제로 커밋·푸시한다(아래 '커밋' 단계). 스케줄을 켜 둔 채
+  #   제출하면 마감 다음 날 06:00 에 봇 커밋이 하나 찍히고, 그것만으로 실격 사유가 된다.
+  #   기능이 없어서가 아니라 **켜 두는 것을 잊어서** 떨어지는 종류의 사고다.
+  #
+  #   그래서 스케줄만 지우고 `workflow_dispatch`(수동 실행 버튼)는 남긴다 —
+  #   배치 자체는 그대로 동작하며, Actions 탭에서 눌러 확인할 수 있다.
+  #   심사가 끝나면 아래 두 줄의 주석을 풀어 일간 자동 갱신을 되살린다:
+  #
+  #     schedule:
+  #       - cron: "0 21 * * *"     # 21:00 UTC = 06:00 KST
+  #
+  workflow_dispatch:        # 수동 실행 버튼 (심사 기간 중 유일한 트리거)
+
+permissions:
+  contents: write
+
+concurrency:                # 앞 실행이 남아 있으면 겹쳐 돌지 않게
+  group: daily-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # 모든 단계가 같은 자격증명을 본다. 값이 없으면 빈 문자열이 들어가고,
+    # src/common.load_secrets() 가 빈 값을 '미설정'으로 취급한다.
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+      GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+      GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
+      GEMINI_API_KEY_5: ${{ secrets.GEMINI_API_KEY_5 }}
+      NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+      NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+      NCP_API_KEY_ID: ${{ secrets.NCP_API_KEY_ID }}
+      NCP_API_KEY: ${{ secrets.NCP_API_KEY }}
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+      PYTHONIOENCODING: utf-8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt
+
+      # 키 값은 절대 찍지 않는다 — 있음/없음만 본다.
+      - name: 자격증명 점검
+        run: python tools/check_credentials.py
+
+      - name: 리스크 진단 갱신
+        run: python tools/daily_refresh.py
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "franscore-bot"
+          git config user.email "actions@github.com"
+          git add outputs/ data/raw/news data/raw/naver 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "변경 없음 — 커밋 생략"
+          else
+            SUMMARY=$(python -c "import json;s=json.load(open('outputs/refresh_state.json',encoding='utf-8'));c=s.get('capability',{});d=c.get('degraded') or [];print(f\"뉴스 +{s['news_added']} · 수요 +{s['demand_updated']} · 진단 {s['rescored']}개\" + (f\" · 축소가동 {len(d)}건\" if d else \"\"))")
+            git commit -m "일간 갱신 — $SUMMARY"
+            git push
+          fi

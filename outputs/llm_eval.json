@@ -1,0 +1,253 @@
+{
+  "model": "gemini-2.5-flash",
+  "llm_evaluated": true,
+  "llm_fallback_brands": 0,
+  "llm_invalidated_reason": null,
+  "gold_file": "data\\eval\\news_gold.jsonl",
+  "all": {
+    "rules": {
+      "n": 59,
+      "accuracy": 0.475,
+      "macro_f1": 0.498,
+      "risk_precision": 0.667,
+      "risk_recall": 0.571,
+      "risk_f1": 0.615,
+      "per_class": {
+        "본부분쟁": {
+          "n_gold": 3,
+          "precision": 0.5,
+          "recall": 0.333,
+          "f1": 0.4
+        },
+        "재무이슈": {
+          "n_gold": 3,
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.857
+        },
+        "집단폐점": {
+          "n_gold": 3,
+          "precision": 0.667,
+          "recall": 0.667,
+          "f1": 0.667
+        },
+        "수요급감": {
+          "n_gold": 5,
+          "precision": 0.667,
+          "recall": 0.4,
+          "f1": 0.5
+        },
+        "기타": {
+          "n_gold": 24,
+          "precision": 0.426,
+          "recall": 0.833,
+          "f1": 0.563
+        },
+        "무관": {
+          "n_gold": 21,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      }
+    },
+    "llm": {
+      "n": 59,
+      "accuracy": 0.966,
+      "macro_f1": 0.945,
+      "risk_precision": 0.875,
+      "risk_recall": 1.0,
+      "risk_f1": 0.933,
+      "per_class": {
+        "본부분쟁": {
+          "n_gold": 3,
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.857
+        },
+        "재무이슈": {
+          "n_gold": 3,
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.857
+        },
+        "집단폐점": {
+          "n_gold": 3,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "수요급감": {
+          "n_gold": 5,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "기타": {
+          "n_gold": 24,
+          "precision": 1.0,
+          "recall": 0.917,
+          "f1": 0.957
+        },
+        "무관": {
+          "n_gold": 21,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      }
+    }
+  },
+  "real": {
+    "rules": {
+      "n": 41,
+      "accuracy": 0.488,
+      "macro_f1": 0.381,
+      "risk_precision": 1.0,
+      "risk_recall": 0.333,
+      "risk_f1": 0.5,
+      "per_class": {
+        "수요급감": {
+          "n_gold": 3,
+          "precision": 1.0,
+          "recall": 0.333,
+          "f1": 0.5
+        },
+        "기타": {
+          "n_gold": 19,
+          "precision": 0.475,
+          "recall": 1.0,
+          "f1": 0.644
+        },
+        "무관": {
+          "n_gold": 19,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      }
+    },
+    "llm": {
+      "n": 41,
+      "accuracy": 1.0,
+      "macro_f1": 1.0,
+      "risk_precision": 1.0,
+      "risk_recall": 1.0,
+      "risk_f1": 1.0,
+      "per_class": {
+        "수요급감": {
+          "n_gold": 3,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "기타": {
+          "n_gold": 19,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "무관": {
+          "n_gold": 19,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      }
+    }
+  },
+  "synthetic": {
+    "rules": {
+      "n": 18,
+      "accuracy": 0.444,
+      "macro_f1": 0.432,
+      "risk_precision": 0.636,
+      "risk_recall": 0.636,
+      "risk_f1": 0.636,
+      "per_class": {
+        "본부분쟁": {
+          "n_gold": 3,
+          "precision": 0.5,
+          "recall": 0.333,
+          "f1": 0.4
+        },
+        "재무이슈": {
+          "n_gold": 3,
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.857
+        },
+        "집단폐점": {
+          "n_gold": 3,
+          "precision": 0.667,
+          "recall": 0.667,
+          "f1": 0.667
+        },
+        "수요급감": {
+          "n_gold": 2,
+          "precision": 0.5,
+          "recall": 0.5,
+          "f1": 0.5
+        },
+        "기타": {
+          "n_gold": 5,
+          "precision": 0.143,
+          "recall": 0.2,
+          "f1": 0.167
+        },
+        "무관": {
+          "n_gold": 2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      }
+    },
+    "llm": {
+      "n": 18,
+      "accuracy": 0.889,
+      "macro_f1": 0.911,
+      "risk_precision": 0.846,
+      "risk_recall": 1.0,
+      "risk_f1": 0.917,
+      "per_class": {
+        "본부분쟁": {
+          "n_gold": 3,
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.857
+        },
+        "재무이슈": {
+          "n_gold": 3,
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.857
+        },
+        "집단폐점": {
+          "n_gold": 3,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "수요급감": {
+          "n_gold": 2,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "기타": {
+          "n_gold": 5,
+          "precision": 1.0,
+          "recall": 0.6,
+          "f1": 0.75
+        },
+        "무관": {
+          "n_gold": 2,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      }
+    }
+  }
+}

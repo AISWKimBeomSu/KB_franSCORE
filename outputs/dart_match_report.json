@@ -1,0 +1,43 @@
+{
+  "verdicts": {
+    "불일치": 812,
+    "확정": 700
+  },
+  "adopted_corps": 700,
+  "all_brands": {
+    "n_brands": 16406,
+    "confirmed_brands": 946,
+    "confirmed_pct": 0.05766183103742533,
+    "confirmed_store_weighted": 0.3401755564261861,
+    "with_financials_brands": 779,
+    "with_financials_pct": 0.047482628306717053,
+    "with_financials_store_weighted": 0.31413593029980785
+  },
+  "eligible": {
+    "n_brands": 1650,
+    "confirmed_brands": 248,
+    "confirmed_pct": 0.1503030303030303,
+    "confirmed_store_weighted": 0.43278858407203574,
+    "with_financials_brands": 201,
+    "with_financials_pct": 0.12181818181818181,
+    "with_financials_store_weighted": 0.39719783220602445
+  },
+  "note": "법인명 매칭은 후보 생성에만 쓰고 사업자등록번호·법인등록번호 대조로 확정한 것만 채택했다. '불일치'는 이름만 같은 다른 법인이므로 버린다.",
+  "quality": {
+    "rows": 2759,
+    "balance_checked": 2729,
+    "balance_failed": 10,
+    "balance_pass_rate": 0.9963356540857456,
+    "pl_checked": 2678,
+    "pl_failed": 46,
+    "pl_pass_rate": 0.9828230022404779,
+    "audit_opinion_counts": {
+      "적정": 2053,
+      "None": 394,
+      "한정": 254,
+      "의견거절": 55,
+      "부적정": 3
+    },
+    "going_concern_flagged": 97
+  }
+}

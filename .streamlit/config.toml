@@ -1,0 +1,21 @@
+# 서버 렌더링 전 잠깐 보이는 기본 테마를 KB 팔레트로 맞춘다.
+# 실제 디자인은 src/theme.py 가 주입하는 CSS 가 담당한다 — 여기는 첫 페인트용이다.
+[theme]
+base = "light"
+primaryColor = "#FFCC00"
+backgroundColor = "#F5F4F1"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#3D3833"
+font = "sans serif"
+
+[server]
+headless = true
+enableCORS = false
+maxUploadSize = 20
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showErrorDetails = "none"     # 심사역 화면에 파이썬 트레이스백을 띄우지 않는다
+toolbarMode = "minimal"

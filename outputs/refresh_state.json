@@ -1,0 +1,35 @@
+{
+ "started_at": "2026-08-01 22:00",
+ "finished_at": "2026-08-01 22:01",
+ "elapsed_sec": 29.4,
+ "news_total": 54,
+ "news_added": 18,
+ "demand_total": 300,
+ "demand_updated": 0,
+ "rescored": 1442,
+ "disclosure_year": 2024,
+ "daily_scope": "뉴스·검색수요 기반 진단 소견과 점검 우선순위",
+ "annual_scope": "공시 기반 리스크 확률(deterioration_1y) — 2024년 공시 기준, 새 공시 공표 시 재학습 필요",
+ "next_due": "2026-08-02 22:01",
+ "steps": [
+  {
+   "name": "news",
+   "ok": true,
+   "detail": "브랜드 12개 조회",
+   "seconds": 25.6
+  },
+  {
+   "name": "demand",
+   "ok": true,
+   "detail": "네이버 자격증명 없음 — 건너뜀",
+   "seconds": 0.0
+  },
+  {
+   "name": "diagnose",
+   "ok": true,
+   "detail": "1,442개 브랜드 진단 재산출",
+   "seconds": 3.7
+  }
+ ],
+ "source": "daily_refresh"
+}

@@ -1,0 +1,72 @@
+{
+  "headline": "year_industry_controlled",
+  "n_brand_years": 6328,
+  "n_brands": 1606,
+  "n_region_pairs": 349089,
+  "min_regions": 5,
+  "min_stores": 30,
+  "p_region_decline": 0.4017818129294351,
+  "p11_joint_decline": 0.2283285924219898,
+  "p11_if_independent": 0.1614286252008636,
+  "rho_event": 0.27014887222397055,
+  "rho_asset": 0.4163622945690687,
+  "decomposition": {
+    "no_control": {
+      "p": 0.4038042554506544,
+      "p11": 0.2283285924219898,
+      "n_pairs": 349089,
+      "n_strata": 1,
+      "rho_event": 0.2711181619681701,
+      "rho_asset": 0.41766907879271814
+    },
+    "year_controlled": {
+      "p": 0.40329975886183445,
+      "p11": 0.2283285924219898,
+      "rho_event": 0.2706614722584771,
+      "rho_asset": 0.4172550741424726,
+      "n_pairs": 349089,
+      "n_strata": 8
+    },
+    "year_industry_controlled": {
+      "p": 0.4017818129294351,
+      "p11": 0.2283285924219898,
+      "rho_event": 0.27014887222397055,
+      "rho_asset": 0.4163622945690687,
+      "n_pairs": 349089,
+      "n_strata": 24
+    }
+  },
+  "basel_corporate_R": [
+    0.12,
+    0.24
+  ],
+  "all_regions_decline_observed": 0.04314159292035398,
+  "all_regions_decline_if_independent": 0.002000321505616452,
+  "all_regions_decline_ratio": 21.56732945140174,
+  "rho_event_ci_lo": 0.24572977015888173,
+  "rho_event_ci_hi": 0.286261068483894,
+  "rho_asset_ci_lo": 0.3822120655223086,
+  "rho_asset_ci_hi": 0.43774530451151605,
+  "n_boot": 200,
+  "between_brand": {
+    "p_brand_decline": 0.5612604939773695,
+    "n_years": 8,
+    "n_brand_years": 8219,
+    "var_total": 0.0009517318144005357,
+    "var_binomial_noise": 0.00024366083112222883,
+    "var_systematic": 0.0007080709832783069,
+    "rho_between": 0.004555683959166005,
+    "rho_between_ci_lo": 0.0,
+    "rho_between_ci_hi": 0.008587343496090936,
+    "yearly_rates": {
+      "2017": 0.5307,
+      "2018": 0.5557,
+      "2019": 0.5567,
+      "2020": 0.5297,
+      "2021": 0.5343,
+      "2022": 0.5546,
+      "2023": 0.5877,
+      "2024": 0.6184
+    }
+  }
+}

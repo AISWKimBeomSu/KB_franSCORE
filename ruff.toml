@@ -1,0 +1,37 @@
+# FranSCORE 린트 설정 — **명시 고정**.
+#
+# 왜 파일로 고정하나: ruff는 버전마다 기본 규칙셋이 달라진다. 설정을 두지 않으면
+# 리뷰어가 `ruff check .` 를 돌렸을 때 개발자와 다른 결과를 보게 되어 "린트 통과"라는
+# 주장이 검증 불가능해진다. 규칙과 버전(requirements-dev.txt)을 함께 고정해
+# 누가 언제 돌려도 같은 결과가 나오게 한다.
+#
+# 실행: python -m ruff check .          (기대: All checks passed!)
+
+# 한글은 표시폭 2로 계산되므로(ruff는 display width 기준) 영문 기준보다 여유를 둔다.
+line-length = 120
+target-version = "py313"
+extend-exclude = ["data", "outputs"]
+
+[lint]
+select = [
+    "E",    # pycodestyle 오류 (E402 모듈 최상단 import 포함)
+    "W",    # pycodestyle 경고
+    "F",    # pyflakes (미사용 import·변수, 정의되지 않은 이름)
+    "I",    # isort — import 정렬
+    "B",    # flake8-bugbear — 실제 버그가 되기 쉬운 패턴
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff 고유 규칙 (미사용 noqa 검출 포함)
+]
+ignore = [
+    # 한글 주석·문자열의 전각 문장부호(·, ，, （ 등)를 '혼동 문자'로 오탐한다.
+    # 이 저장소는 문서·로그가 한국어이므로 의도된 표기다.
+    "RUF001", "RUF002", "RUF003",
+]
+
+[lint.per-file-ignores]
+# Streamlit 앱은 st.set_page_config() 를 다른 import 보다 먼저 호출해야 한다(프레임워크 제약).
+"src/app.py" = ["E402"]
+# 테스트는 sys.path 조작 후 import 해야 하고, 실패 격리를 위해 광범위 예외를 잡는다.
+"tests/*.py" = ["E402"]

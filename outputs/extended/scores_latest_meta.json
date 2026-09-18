@@ -1,0 +1,17 @@
+{
+  "scored_year": 2024,
+  "n_scored": 2510,
+  "model_file": "model_lgbm.txt",
+  "calibration_method": "isotonic",
+  "calibration_fitted_on": "valid",
+  "prob_floor": 0.0003,
+  "prob_cap": 0.99,
+  "grade_counts": {
+    "Low": 1756,
+    "Medium": 502,
+    "High": 252
+  },
+  "deterioration_min": 0.0003,
+  "deterioration_max": 0.428823158479371,
+  "note": "라벨 미확정 코호트의 사전 점수. 보정기는 과거 valid 적합본을 적용만 했으며 재적합하지 않았다. 성능 근거는 metrics.csv·walkforward_metrics.csv 참조."
+}

@@ -1,0 +1,183 @@
+{
+  "cuts": [
+    0.045,
+    0.16
+  ],
+  "grades": [
+    "FS1",
+    "FS2",
+    "FS3"
+  ],
+  "grade_kr": {
+    "FS1": "안정",
+    "FS2": "관찰",
+    "FS3": "주의"
+  },
+  "anchored_on": "운영 모형 점수(학습 연도 제외) + 등온회귀·계단별 축소 보정. 컷은 배포 보정기 척도에서 도출.",
+  "selection_caveat": "pooled 실현율표는 컷을 고른 자료 위에서 계산된 **실적표**다. 비중첩·단조는 격자 탐색의 선택 제약이므로 이 표 자체는 검증이 아니다 — 검증은 cut_procedure_oot(절차의 시점 밖 검증)와 null_test(라벨 치환 귀무검정)가 맡는다.",
+  "calibration_data_note": "보정 자료 중 2022년은 운영 모형의 valid 연도다 — 복잡도 선택과 조기종료가 그 해 라벨을 봤으므로 그 해 점수의 분리력은 순수 OOS 보다 유리할 수 있다. 2023년은 모형 선택에 쓰이지 않은 순수 OOS 다. 절차 검증(cut_procedure_oot)의 채점 연도는 2023이므로 이 우려의 영향권 밖이다.",
+  "cut_procedure_oot": {
+    "feasible": true,
+    "anchor_years": [
+      2022
+    ],
+    "test_year": 2023,
+    "cuts_from_anchor": [
+      0.035,
+      0.095
+    ],
+    "anchor_min_separation": 0.003951,
+    "test_by_grade": [
+      {
+        "grade": "FS1",
+        "n": 262,
+        "events": 6,
+        "rate": 0.022901,
+        "ci_lo": 0.008449,
+        "ci_hi": 0.049176
+      },
+      {
+        "grade": "FS2",
+        "n": 275,
+        "events": 24,
+        "rate": 0.087273,
+        "ci_lo": 0.056718,
+        "ci_hi": 0.127071
+      },
+      {
+        "grade": "FS3",
+        "n": 203,
+        "events": 30,
+        "rate": 0.147783,
+        "ci_lo": 0.101983,
+        "ci_hi": 0.204201
+      }
+    ],
+    "test_monotone": true,
+    "test_min_separation": -0.025088,
+    "note": "컷 선택이 검증 연도를 전혀 보지 않은 상태의 성적. 분리폭이 음수여도 단조가 유지되면 절차는 유효하다 — 비중첩까지 요구하면 검증이 아니라 선택 제약의 재확인이 된다."
+  },
+  "null_test": {
+    "n_iter": 200,
+    "n_qualifying_cut_found": 0,
+    "p_qualifying_by_chance": 0.0,
+    "null_sep_max": null,
+    "null_sep_p95": null,
+    "note": "무작위 라벨에서 조건(표본·단조·비중첩·연도별 단조)을 모두 만족하는 컷이 나올 확률과, 나왔을 때의 분리폭. 관측 분리폭이 귀무 최대값보다 크면 선택 효과만으로는 설명되지 않는다."
+  },
+  "calibration_years": [
+    2022,
+    2023
+  ],
+  "out_of_time": {
+    "fit_years": [
+      2022
+    ],
+    "test_years": [
+      2023
+    ],
+    "n": 740,
+    "events": 60,
+    "by_grade": [
+      {
+        "grade": "FS1",
+        "grade_kr": "안정",
+        "n": 262,
+        "events": 6,
+        "rate": 0.022901,
+        "ci_lo": 0.008449,
+        "ci_hi": 0.049176
+      },
+      {
+        "grade": "FS2",
+        "grade_kr": "관찰",
+        "n": 365,
+        "events": 32,
+        "rate": 0.087671,
+        "ci_lo": 0.06074,
+        "ci_hi": 0.121511
+      },
+      {
+        "grade": "FS3",
+        "grade_kr": "주의",
+        "n": 113,
+        "events": 22,
+        "rate": 0.19469,
+        "ci_lo": 0.126218,
+        "ci_hi": 0.279792
+      }
+    ]
+  },
+  "calibrators": {
+    "2023": {
+      "method": "isotonic+eb_shrinkage",
+      "alpha": 10.0,
+      "fitted_on": "[np.int64(2022)]",
+      "n": 689,
+      "events": 81,
+      "base_rate": 0.117562,
+      "n_levels": 12,
+      "cv_logloss": {
+        "0.0": 0.334887,
+        "2.0": 0.321957,
+        "5.0": 0.320115,
+        "10.0": 0.319276,
+        "20.0": 0.32059,
+        "40.0": 0.325208,
+        "80.0": 0.332907
+      }
+    }
+  },
+  "deploy_calibrator_detail": {
+    "method": "isotonic+eb_shrinkage",
+    "alpha": 10.0,
+    "fitted_on": "[np.int64(2022), np.int64(2023)]",
+    "n": 1429,
+    "events": 141,
+    "base_rate": 0.09867,
+    "n_levels": 11
+  },
+  "n_validation": 1429,
+  "n_events": 141,
+  "min_ci_separation": 0.05564,
+  "pooled": [
+    {
+      "grade": "FS1",
+      "n": 631,
+      "events": 14,
+      "rate": 0.022187,
+      "ci_lo": 0.012182,
+      "ci_hi": 0.036946,
+      "grade_kr": "안정"
+    },
+    {
+      "grade": "FS2",
+      "n": 616,
+      "events": 72,
+      "rate": 0.116883,
+      "ci_lo": 0.092587,
+      "ci_hi": 0.144921,
+      "grade_kr": "관찰"
+    },
+    {
+      "grade": "FS3",
+      "n": 182,
+      "events": 55,
+      "rate": 0.302198,
+      "ci_lo": 0.236464,
+      "ci_hi": 0.374505,
+      "grade_kr": "주의"
+    }
+  ],
+  "deploy_calibrator": "calibrator_deploy.joblib",
+  "label_note": "악화 = 공정거래위원회 가맹사업 공시 지표(가맹점수·계약종료·평균매출·면적당매출)가 업종×연도 하위 구간에 진입하는 사건이다. 차주의 채무불이행 확률이 아니다.",
+  "rule": {
+    "min_grade_n": 150,
+    "criteria": [
+      "등급별 최소 표본",
+      "실현율 단조 증가",
+      "인접 Clopper-Pearson 95% 구간 비중첩",
+      "검증 전 연도에서 단조성 유지"
+    ]
+  }
+}

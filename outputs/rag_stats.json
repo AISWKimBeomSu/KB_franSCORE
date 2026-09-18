@@ -1,0 +1,11 @@
+{
+  "n_documents": 23707,
+  "by_source_type": {
+    "disclosure": 20000,
+    "hq_financial": 3684,
+    "news": 23
+  },
+  "n_brands_covered": 5085,
+  "retrieval": "TF-IDF (word 1-2gram + char_wb 2-4gram) + cosine similarity",
+  "note": "외부 임베딩 API 미사용 — 키 없이 완전 재현 가능"
+}

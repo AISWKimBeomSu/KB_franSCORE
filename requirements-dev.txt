@@ -1,0 +1,8 @@
+# 개발·검증 도구 (실행에는 불필요 — requirements.txt 만으로 파이프라인이 돈다)
+#
+# 린트 결과를 재현 가능하게 만들려면 규칙(ruff.toml)과 함께 **버전도** 고정해야 한다.
+# ruff는 마이너 버전마다 기본 규칙셋과 신규 규칙이 바뀌기 때문이다.
+#   설치: pip install -r requirements-dev.txt
+#   검사: python -m ruff check .        (기대: All checks passed!)
+ruff==0.16.0
+pypdf==6.14.2          # 정보공개서 PDF 오프라인 수집(src/ifrmp_web --ingest-dir) 전용 — 배포 앱은 쓰지 않는다

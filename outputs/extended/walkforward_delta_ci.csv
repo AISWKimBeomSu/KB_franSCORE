@@ -1,0 +1,4 @@
+﻿track,comparison,mean_delta_lift,ci_lo,ci_hi,p_win,n_boot,metric,bootstrap_unit
+extended,lgbm - persistence,0.3951605084911914,-0.2115100836202657,0.7771502154328247,0.96,200,macro_avg_fold_lift_at_10,year_block
+extended,lgbm - single,0.0205540914501158,-0.3172651254303984,0.2817816294555434,0.63,200,macro_avg_fold_lift_at_10,year_block
+extended,lgbm - logistic,-0.3166519995450444,-0.7402852926709298,-0.0603483483483486,0.0,200,macro_avg_fold_lift_at_10,year_block

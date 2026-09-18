@@ -1,0 +1,239 @@
+{
+ "candidates_predeclared": [
+  {
+   "name": "현행",
+   "min_stores": 30,
+   "min_consecutive_years": 3
+  },
+  {
+   "name": "완화A",
+   "min_stores": 20,
+   "min_consecutive_years": 3
+  },
+  {
+   "name": "완화B",
+   "min_stores": 10,
+   "min_consecutive_years": 2
+  }
+ ],
+ "lift_gate": 0.3,
+ "rows": [
+  {
+   "gate": "점포30+ · 3년연속",
+   "min_stores": 30,
+   "min_consecutive_years": 3,
+   "n_eligible_rows": 7544,
+   "n_labels": 3635,
+   "n_events": 335,
+   "base_rate": 0.0921595598349381,
+   "n_brands_labeled": 1250,
+   "lgbm_roc_auc": 0.7104848303933,
+   "lgbm_pr_auc": 0.186823346334315,
+   "lgbm_lift_at_10": 2.745480513192932,
+   "lgbm_precision_at_10": 0.25398928340104815,
+   "lgbm_brier": 0.1287853415812172,
+   "persistence_roc_auc": 0.5450868785033484,
+   "persistence_pr_auc": 0.14928671860684456,
+   "persistence_lift_at_10": 1.687566483383477,
+   "persistence_precision_at_10": 0.1567870391399803,
+   "persistence_brier": 0.10202358206663122,
+   "single_roc_auc": 0.6565035631465329,
+   "single_pr_auc": 0.19715809220331604,
+   "single_lift_at_10": 2.4029370266625167,
+   "single_precision_at_10": 0.2249917985212103,
+   "single_brier": 0.2278154076352413,
+   "logistic_roc_auc": 0.7069036525840721,
+   "logistic_pr_auc": 0.21879561841583042,
+   "logistic_lift_at_10": 2.525703565376768,
+   "logistic_precision_at_10": 0.24088163794046147,
+   "logistic_brier": 0.2116714048530263,
+   "lgbm_lift_fold_min": 2.6666666666666665,
+   "lgbm_lift_fold_max": 2.8177777777777777,
+   "n_folds": 3,
+   "edge_mean": 1.0579140298094547,
+   "edge_ci_lo": 0.8238473943931571,
+   "edge_ci_hi": 1.2919806652257524,
+   "edge_significant": true,
+   "edge_folds": [
+    1.006,
+    1.001,
+    1.167
+   ],
+   "name": "현행"
+  },
+  {
+   "gate": "점포20+ · 3년연속",
+   "min_stores": 20,
+   "min_consecutive_years": 3,
+   "n_eligible_rows": 10120,
+   "n_labels": 4638,
+   "n_events": 455,
+   "base_rate": 0.09810263044415696,
+   "n_brands_labeled": 1648,
+   "lgbm_roc_auc": 0.7035875400605169,
+   "lgbm_pr_auc": 0.196461149097674,
+   "lgbm_lift_at_10": 2.2254493892127525,
+   "lgbm_precision_at_10": 0.21716695639399652,
+   "lgbm_brier": 0.15141354146747107,
+   "persistence_roc_auc": 0.5457239983885521,
+   "persistence_pr_auc": 0.1448617243626745,
+   "persistence_lift_at_10": 1.6158122256759866,
+   "persistence_precision_at_10": 0.16098841906813896,
+   "persistence_brier": 0.10312306467752182,
+   "single_roc_auc": 0.6379956223927966,
+   "single_pr_auc": 0.19536200916602406,
+   "single_lift_at_10": 2.3278634115074657,
+   "single_precision_at_10": 0.23280203053970897,
+   "single_brier": 0.22458018747586098,
+   "logistic_roc_auc": 0.7009778994181796,
+   "logistic_pr_auc": 0.22229323985014435,
+   "logistic_lift_at_10": 2.4218605362157373,
+   "logistic_precision_at_10": 0.2405675391131895,
+   "logistic_brier": 0.20973565598548202,
+   "lgbm_lift_fold_min": 2.0687160940325495,
+   "lgbm_lift_fold_max": 2.396163469557965,
+   "n_folds": 3,
+   "edge_mean": 0.6096371635367658,
+   "edge_ci_lo": -0.2046022648763951,
+   "edge_ci_hi": 1.4238765919499268,
+   "edge_significant": false,
+   "edge_folds": [
+    0.477,
+    0.369,
+    0.983
+   ],
+   "name": "완화A"
+  },
+  {
+   "gate": "점포10+ · 2년연속",
+   "min_stores": 10,
+   "min_consecutive_years": 2,
+   "n_eligible_rows": 17759,
+   "n_labels": 7163,
+   "n_events": 815,
+   "base_rate": 0.11377914281725535,
+   "n_brands_labeled": 2554,
+   "lgbm_roc_auc": 0.7057635223909711,
+   "lgbm_pr_auc": 0.23731314857754532,
+   "lgbm_lift_at_10": 2.320721020988269,
+   "lgbm_precision_at_10": 0.2627066716142962,
+   "lgbm_brier": 0.11235474411985043,
+   "persistence_roc_auc": 0.5312455023333732,
+   "persistence_pr_auc": 0.15382059161402517,
+   "persistence_lift_at_10": 1.60545377301785,
+   "persistence_precision_at_10": 0.18465481277064855,
+   "persistence_brier": 0.11130179852476232,
+   "single_roc_auc": 0.5925220451736802,
+   "single_pr_auc": 0.18964019771922846,
+   "single_lift_at_10": 2.108701534014846,
+   "single_precision_at_10": 0.24171497210353515,
+   "single_brier": 0.21646630964699334,
+   "logistic_roc_auc": 0.7065675429269441,
+   "logistic_pr_auc": 0.24334593380567393,
+   "logistic_lift_at_10": 2.4587850060027217,
+   "logistic_precision_at_10": 0.277600597798545,
+   "logistic_brier": 0.21507029089049753,
+   "lgbm_lift_fold_min": 1.8886427411017574,
+   "lgbm_lift_fold_max": 2.495975800788635,
+   "n_folds": 4,
+   "edge_mean": 0.7152672479704193,
+   "edge_ci_lo": -0.1393927112328398,
+   "edge_ci_hi": 1.5699272071736785,
+   "edge_significant": false,
+   "edge_folds": [
+    0.28,
+    0.493,
+    0.591,
+    1.497
+   ],
+   "name": "완화B"
+  }
+ ],
+ "verdicts": [
+  {
+   "name": "완화A",
+   "gate": "점포20+ · 3년연속",
+   "n_labels": 4638,
+   "n_events": 455,
+   "label_gain_pct": 27.6,
+   "lgbm_lift": 2.2254493892127525,
+   "persistence_lift": 1.6158122256759866,
+   "edge_over_persistence": 0.6096371635367659,
+   "edge_ci": [
+    -0.2046022648763951,
+    1.4238765919499268
+   ],
+   "edge_folds": [
+    0.477,
+    0.369,
+    0.983
+   ],
+   "gate_pass": false,
+   "reason": "평균 우위 0.610 ≥ 0.3 · t-구간 [-0.205, +1.424] 0 포함 — 비유의"
+  },
+  {
+   "name": "완화B",
+   "gate": "점포10+ · 2년연속",
+   "n_labels": 7163,
+   "n_events": 815,
+   "label_gain_pct": 97.1,
+   "lgbm_lift": 2.320721020988269,
+   "persistence_lift": 1.60545377301785,
+   "edge_over_persistence": 0.7152672479704192,
+   "edge_ci": [
+    -0.1393927112328398,
+    1.5699272071736785
+   ],
+   "edge_folds": [
+    0.28,
+    0.493,
+    0.591,
+    1.497
+   ],
+   "gate_pass": false,
+   "reason": "평균 우위 0.715 ≥ 0.3 · t-구간 [-0.139, +1.570] 0 포함 — 비유의"
+  }
+ ],
+ "common_folds": [
+  "2021",
+  "2022",
+  "2023"
+ ],
+ "common_fold_comparison": [
+  {
+   "name": "현행",
+   "gate": "점포30+ · 3년연속",
+   "common_folds": "2021,2022,2023",
+   "lgbm_lift": 2.745480513192932,
+   "lgbm_auc": 0.7104848303933,
+   "persistence_lift": 1.687566483383477,
+   "persistence_auc": 0.5450868785033484,
+   "logistic_lift": 2.525703565376768,
+   "logistic_auc": 0.7069036525840721
+  },
+  {
+   "name": "완화A",
+   "gate": "점포20+ · 3년연속",
+   "common_folds": "2021,2022,2023",
+   "lgbm_lift": 2.2254493892127525,
+   "lgbm_auc": 0.7035875400605169,
+   "persistence_lift": 1.6158122256759866,
+   "persistence_auc": 0.5457239983885521,
+   "logistic_lift": 2.4218605362157373,
+   "logistic_auc": 0.7009778994181798
+  },
+  {
+   "name": "완화B",
+   "gate": "점포10+ · 2년연속",
+   "common_folds": "2021,2022,2023",
+   "lgbm_lift": 2.2849225985405783,
+   "lgbm_auc": 0.7058086739123404,
+   "persistence_lift": 1.4246220225927633,
+   "persistence_auc": 0.5089892433313042,
+   "logistic_lift": 2.5312673039016773,
+   "logistic_auc": 0.7059901018588617
+  }
+ ],
+ "caveat_folds": "연속관측 요건을 낮추면 fold 가 하나 더 생긴다. macro 평균은 fold 수가 달라 직접 비교가 안 되므로 공통 fold 비교를 함께 싣는다.",
+ "procedure": "OPERATIONS §6 변경관리 — 전후 양쪽 공개, §3 배포 게이트로 판정"
+}

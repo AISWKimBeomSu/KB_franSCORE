@@ -1,0 +1,97 @@
+{
+  "generated_at": "2026-08-03T05:43:42",
+  "synthetic": false,
+  "test_year": 2023,
+  "n_brands": 60,
+  "det_column_used": "p_calibrated",
+  "total_exposure_mkrw": 48246.79788,
+  "total_exposure_ekw": 482.46797879999997,
+  "concentration": {
+    "hhi": 0.06527202365229316,
+    "top10_share": 0.653461471545021,
+    "top1_share": 0.15104975915968497
+  },
+  "risk_grades": {
+    "high_quantile": 0.9,
+    "medium_quantile": 0.7,
+    "high_pd_cut": 0.22728156508103198,
+    "medium_pd_cut": 0.1460743912220636,
+    "counts": {
+      "Low": 35,
+      "Medium": 18,
+      "High": 7
+    },
+    "exposure_mkrw": {
+      "High": 4735.5273,
+      "Low": 37801.1619,
+      "Medium": 5710.108679999999
+    }
+  },
+  "expected_loss_scenarios": [
+    {
+      "lgd": 0.3,
+      "el_mkrw": 1328.6635002692158,
+      "el_ekw": 13.286635002692158,
+      "el_pct_of_exposure": 0.02753889498685246,
+      "stress_el_mkrw": 1543.1991855993497,
+      "stress_el_ekw": 15.431991855993497,
+      "stress_el_pct_of_exposure": 0.03198552553555187
+    },
+    {
+      "lgd": 0.45,
+      "el_mkrw": 1992.9952504038233,
+      "el_ekw": 19.929952504038233,
+      "el_pct_of_exposure": 0.04130834248027868,
+      "stress_el_mkrw": 2314.7987783990243,
+      "stress_el_ekw": 23.147987783990242,
+      "stress_el_pct_of_exposure": 0.047978288303327794
+    },
+    {
+      "lgd": 0.6,
+      "el_mkrw": 2657.3270005384315,
+      "el_ekw": 26.573270005384316,
+      "el_pct_of_exposure": 0.05507778997370492,
+      "stress_el_mkrw": 3086.3983711986994,
+      "stress_el_ekw": 30.863983711986993,
+      "stress_el_pct_of_exposure": 0.06397105107110374
+    }
+  ],
+  "stress": {
+    "top_pct": 0.1,
+    "stress_multiplier": 1.5,
+    "prob_cap": 1.0,
+    "n_stressed_brands": 6
+  },
+  "headline": "[공시 창업비용 기반 추정 여신] 2023년 test 브랜드 60개로 구성한 포트폴리오의 총 여신은 482억원이며, 중간 시나리오(LGD 45%) 기준 1년 예상손실은 19.9억원(여신의 4.13%), 위험 상위 10% 브랜드 동시 악화 스트레스 시 23.1억원으로 확대됩니다. 상위 10개 브랜드 여신 집중도는 65.3%, HHI는 0.065입니다.",
+  "assumptions": {
+    "exposure": {
+      "basis": "disclosed_startup_cost",
+      "is_synthetic": false,
+      "startup_cost_observed_brands": 60,
+      "n_brands": 60,
+      "loan_to_startup_cost": 0.6,
+      "bank_share": 0.15,
+      "source_api": "15110265 브랜드별 창업 금액 현황",
+      "assumption_note": "창업비용·가맹점수는 공정위 공시 실측값. 대출조달비율·은행 점유율은 가정(실제 여신은 미공개)."
+    },
+    "synthetic_exposure": false,
+    "statement_ko": "여신 exposure는 **공정위 공시 창업비용(15110265) 실측값**에서 유도했습니다: exposure = 가맹점수 × 브랜드별 창업비용 × 대출조달비율 × 은행 점유율. 창업비용과 가맹점수는 실측이며, 대출조달비율·은행 점유율은 가정입니다 (실제 여신 잔액은 은행 내부 자료로 공개되지 않습니다). 따라서 절대 금액은 시나리오이나, 브랜드 간 상대 규모·집중도는 실제 구조를 반영합니다.",
+    "seed": 42,
+    "units": {
+      "exposure": "백만원(MKRW)",
+      "display": "억원 = 백만원 / 100"
+    },
+    "risk_definition": "악화확률은 모델이 예측한 '1년 내 구조악화 전환 확률'입니다. 공정거래위원회 공시 지표가 업종×연도 하위 구간에 진입하는 사건의 확률이며, 차주의 채무불이행 확률(PD)이 아닙니다. EL 은 그 확률을 쓴 대리 손실 지표입니다.",
+    "el_formula": "EL_i = exposure_i × 악화확률_i × LGD (LGD 시나리오 3종)",
+    "stress_rule": "악화확률 상위 10% 브랜드(6개)의 악화확률 × 1.5 (상한 1.0) 동시 악화 가정",
+    "risk_grade_basis": "test 전체 브랜드 예측확률 분포 내 **순위(pct rank)** 기준 — High = 상위 10%, Medium = 상위 30% 이내. 값 임계 컷은 보정확률 동률 블록이 경계에 걸릴 때 등급 비율이 설계값을 초과할 수 있어(개발 중 실측 사례 확인) 순위 기준으로 부여한다.",
+    "risk_grade_cut_values_reference": {
+      "high_pd_cut": 0.227282,
+      "medium_pd_cut": 0.146074,
+      "note": "참고용 값 — 등급 판정에는 순위를 사용한다"
+    },
+    "store_count_source": "panel.parquet",
+    "store_count_fallback_rows": 0,
+    "brands_dropped_no_stores": 0
+  }
+}
