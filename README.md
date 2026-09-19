@@ -8,7 +8,7 @@
 
 은행은 가맹점주를 **차주 단위**로 심사하지만, 부실은 **브랜드 단위로 함께** 옵니다.<br/>
 공정위 가맹사업 공시와 가맹본부 감사보고서로 **외식 프랜차이즈 1,521개 브랜드의 1년 내 구조악화 위험**을 산출하고,<br/>
-심사 · 사후관리 · 편중 관리 업무 화면으로 연결한 **2선 리스크 관리 서비스**입니다.
+심사 · 협약 · 사후관리 · 편중 관리 · 모형 검증 업무 화면으로 연결한 **2선 리스크 관리 서비스**입니다.
 
 <br/>
 
@@ -16,6 +16,7 @@
 [![Results](https://img.shields.io/badge/검증_결과_상세-26221E?style=for-the-badge)](docs/RESULTS.md)
 [![Technical Report](https://img.shields.io/badge/기술설명서-26221E?style=for-the-badge)](docs/TECHNICAL_REPORT.md)
 
+[![CI](https://github.com/AISWKimBeomSu/KB_franSCORE/actions/workflows/ci.yml/badge.svg)](https://github.com/AISWKimBeomSu/KB_franSCORE/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python_3.13-0f172a?style=flat&logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-0f172a?style=flat&logo=streamlit&logoColor=white)
 ![LightGBM](https://img.shields.io/badge/LightGBM-0f172a?style=flat)
@@ -37,14 +38,18 @@
 > **🛠️ 해결** — 공정위 가맹사업 공시(오픈API **7종**)·DART 감사보고서·네이버 검색수요로 브랜드×연도 패널을 만들고, **1년 내 구조악화 확률 → 고정 등급(FS1~FS3) → 근거 소견**을 산출해 업무 화면과 문서로 제공합니다.
 >
 > **📈 결과** — 2022년 자료로 맞춘 등급을 2023년에 그대로 적용했을 때 실제 악화율이 **안정 2.3% → 관찰 8.8% → 주의 19.5%** 로 갈립니다(시점 밖 검증). 워크포워드 표본 밖 AUC **0.707**.
+>
+> **🏦 은행 자료로 이어지게** — 행내 여신 장부를 올리면 편중·꼬리손실을 그 장부로, 연체 자료를 올리면 등급 검증을 그 자리에서 다시 계산합니다. 차주 사업자번호로 국세청 휴·폐업도 함께 확인합니다.
 
 ### 누가, 어느 업무에서 쓰는가
 
 | 여신 업무 | 실무자의 질문 | FranSCORE 가 주는 것 |
 |---|---|---|
-| **신규 취급** (심사) | "이 가맹점주가 속한 브랜드, 괜찮은가?" | 브랜드 상세 · 품의서용 **참고의견서** · 신청 목록 **일괄 조회** |
-| **사후관리** (조기경보) | "올해 무엇부터 점검하나?" | **점검 큐** — 중대 신호 → 1년 내 악화 위험 × 가맹점 수 순서, 담당·메모·엑셀 반출 |
-| **포트폴리오** (편중 관리) | "어느 브랜드에 쏠렸고, 꼬리위험은 어디서 오나?" | **여신 포트폴리오** — HHI·브랜드/업종 한도 초과·꼬리손실 기여(Euler ES) |
+| **신규 취급** (심사) | "이 가맹점주가 속한 브랜드, 괜찮은가?" | 브랜드 상세 · 품의서용 **참고의견서** · 신청 목록 **일괄 조회**(차주 사업자 휴·폐업 동시 확인) |
+| **협약대출** (브랜드 관리) | "어느 본부와 협약하고, 언제 재심사하나?" | **브랜드 탐색·비교** — 업종·등급·규모·중대 신호로 거르고 후보 2~4개를 나란히 비교 |
+| **사후관리** (조기경보) | "올해 무엇부터 점검하나?" | **점검 큐** — 중대 신호 → 1년 내 악화 위험 × 가맹점 수 순서, 담당·메모·**변경 이력**·엑셀 반출 |
+| **포트폴리오** (편중 관리) | "어느 브랜드에 쏠렸고, 꼬리위험은 어디서 오나?" | **여신 포트폴리오** — 행내 장부 업로드, 담보유형별 LGD, 브랜드 상관을 반영한 꼬리손실(Euler ES) 실시간 계산 |
+| **모형 검증** (심사 반영 전) | "이 등급이 우리 은행 연체를 설명하나?" | **등급 검증** — 연체 자료를 올리면 취급 당시 등급 기준으로 서열성·내부등급 대비 추가 정보를 판정 |
 
 > 차주 심사를 **대체하지 않습니다.** 차주 심사가 구조적으로 볼 수 없는 **브랜드 축 하나를 더합니다.**
 > 등급은 부도확률(PD)이 아니라 브랜드 공시 지표의 구조악화 확률이며, 여신 승인·거절, 한도·금리 결정에 쓰지 않습니다.
@@ -77,15 +82,19 @@
 
 <table>
 <tr>
-<td width="50%"><img src="assets/screenshots/brand-detail.png" alt="브랜드 상세 화면"/><br/><b>브랜드 상세</b> — 등급·근거 소견·공시 추이·본부 재무·검색 수요. 참고의견서 내려받기, 공유 링크</td>
-<td width="50%"><img src="assets/screenshots/batch-screening.png" alt="일괄 조회 화면"/><br/><b>일괄 조회</b> — 신청 목록 업로드 → 브랜드 자동 매칭(통칭·동명 구분) → 등급·중대 신호·확인 서류를 붙여 엑셀 반출</td>
+<td width="50%"><img src="assets/screenshots/brand-detail.png" alt="브랜드 상세 화면"/><br/><b>브랜드 상세</b> — 등급·근거 소견·모형 요인(SHAP)·공시 추이·본부 재무. 공시 공백 보정 브랜드는 그 근거를 함께 표시</td>
+<td width="50%"><img src="assets/screenshots/batch-screening.png" alt="일괄 조회 화면"/><br/><b>일괄 조회</b> — 신청 목록 업로드 → 브랜드 자동 매칭(통칭·동명 구분) → 등급·중대 신호·확인 서류, 사업자번호가 있으면 국세청 휴·폐업까지 붙여 엑셀 반출</td>
 </tr>
 <tr>
-<td><img src="assets/screenshots/review-queue.png" alt="점검 큐 화면"/><br/><b>점검 큐</b> — 중대 신호 우선, 1년 내 악화 위험 × 가맹점 수 순서. 담당 배정·처리상태·확인 메모·엑셀 반출</td>
+<td><img src="assets/screenshots/explore-compare.png" alt="브랜드 탐색·비교 화면"/><br/><b>브랜드 탐색·비교</b> — 협약 후보를 조건으로 거르고 2~4개를 나란히 비교(등급·상태·가맹점 흐름·본부 재무)</td>
+<td><img src="assets/screenshots/review-queue.png" alt="점검 큐 화면"/><br/><b>점검 큐</b> — 중대 신호 우선, 1년 내 악화 위험 × 가맹점 수 순서. 담당 배정·처리상태·메모, 판단 당시 근거를 남기는 변경 이력</td>
+</tr>
+<tr>
+<td><img src="assets/screenshots/portfolio.png" alt="여신 포트폴리오 꼬리손실 화면"/><br/><b>여신 포트폴리오</b> — 행내 장부를 올리면 화면 전체가 그 장부로 바뀌고, 담보유형별 LGD로 꼬리손실·브랜드별 기여를 즉시 재계산 (그림은 양식 예시 장부)</td>
+<td><img src="assets/screenshots/grade-validation.png" alt="등급 검증 화면"/><br/><b>등급 검증</b> — 은행 연체 자료로 서열성·내부등급 대비 추가 정보를 판정. 시점 정합·생존 편향 방지·브랜드 군집 강건 검정 (그림은 <b>가상 시연 자료</b>)</td>
+</tr>
+<tr>
 <td><img src="assets/screenshots/credit-memo.png" alt="참고의견서"/><br/><b>참고의견서</b> — 여신 품의서에 첨부하는 인쇄·PDF용 문서. 확인·징구 서류 체크리스트 포함</td>
-</tr>
-<tr>
-<td><img src="assets/screenshots/portfolio.png" alt="여신 포트폴리오 화면"/><br/><b>여신 포트폴리오</b> — 실행·회수를 넣으면 HHI·집중도·대리 예상손실을 즉시 재계산, 한도 초과 경고</td>
 <td><img src="assets/screenshots/assistant.png" alt="AI 상담 화면"/><br/><b>AI 상담</b> — 자연어 질의에 공시·감사보고서·뉴스 근거로 답변. API 키가 없어도 표 형태로 답합니다</td>
 </tr>
 </table>
@@ -97,6 +106,8 @@
 - **모든 숫자에 문장과 출처** — 규칙 34종이 "2024년에 계약이 끝난 가맹점이 82개로, 연초 점포의 58.6%입니다. 한식 업종 상위 8%" 처럼 그 브랜드의 실제 수치로 소견을 씁니다.
 - **화면끼리 같은 숫자** — 등급 경계·표시 반올림·점검 순서를 한 모듈(`src/grading.py`)에서 정하고, 화면과 AI 상담이 같은 규칙을 씁니다.
 - **공유와 반출** — 브랜드 링크(`?brand=`), 한글 머리글 엑셀, 품의서용 참고의견서.
+- **평가 범위의 빈틈을 메운다** — 공정위 통계의 한 해 공백 때문에 BBQ·투썸플레이스 같은 대형 브랜드가 빠지고 있었습니다. 빈 해를 다른 공식 기록(지역·직영 통계, 등록 이력)으로 확인해 79개 브랜드를 더 평가합니다(가맹점 기준 73.6% → 80.1%, 재학습 없음). 평가하지 않은 브랜드는 이유를 브랜드별로 알려 줍니다.
+- **연도를 헷갈리지 않게** — "2024년 실적 · 2025년 정보공개서"로 적어 공정위 자료와 바로 대조됩니다.
 
 ---
 
@@ -117,7 +128,9 @@
 
 > **정직한 주장 범위** — LightGBM 이 통계적으로 유의하게 넘어서는 것은 '전년 상태 유지' 기준모형뿐이고, 로지스틱·단일변수와는 **통계적으로 동등**합니다. LightGBM 을 쓰는 이유는 성능 우위가 아니라 **SHAP 요인 분해로 브랜드별 근거를 설명**할 수 있어서입니다. 신뢰구간·불리한 결과까지 전부 → [docs/RESULTS.md](docs/RESULTS.md)
 
-**품질 장치** — 시점 누출 자동 검사 · 라벨 규칙 학습 전 동결 · 두 표본 트랙 사전 선언 · 문서에 적힌 수치 **186건**을 산출물과 자동 대조(`tools/check_doc_numbers.py`) · pytest 전 화면 스모크 테스트
+**은행 자료가 들어오면** — 라벨이 연체가 아니므로, 은행 연체 자료로 곧바로 돌릴 검증 절차를 코드로 고정해 두었습니다(**등급 검증** 화면). 대출을 **취급 당시 볼 수 있던 등급**에 맞추고(실적은 다음 해에 공개되므로 취급연도 − 2년), 그사이 사라진 브랜드까지 찾아 **생존 편향**을 막고, 같은 브랜드 연체의 동조를 반영한 **브랜드 군집 강건 검정**으로 판정합니다. 판정 기준은 귀무 모의실험으로 오탐률을 확인했습니다.
+
+**품질 장치** — 시점 누출 자동 검사 · 라벨 규칙 학습 전 동결 · 두 표본 트랙 사전 선언 · 문서에 적힌 수치 **186건**을 산출물과 자동 대조(`tools/check_doc_numbers.py`) · pytest 전 화면 스모크 테스트 · 푸시마다 GitHub Actions CI
 
 ---
 
@@ -130,22 +143,26 @@ flowchart LR
         A1["공정위 가맹사업 공시<br/>오픈API 7종"]
         A2["DART 감사보고서<br/>가맹본부 재무"]
         A3["네이버 검색수요·뉴스"]
+        A4["국세청 휴·폐업 · 지자체 인허가<br/>(월·일 단위)"]
     end
     subgraph PIPE["배치 파이프라인 · run_pipeline.py"]
         direction TB
         B1["엔티티 정합<br/>브랜드 관리번호"] --> B2["브랜드×연도 패널"]
-        B2 --> B3["피처 49개<br/>시점 누출 검사"]
+        B2 --> B8["평가 범위 보정<br/>공시 공백 확인"]
+        B8 --> B3["피처 49개<br/>시점 누출 검사"]
         B3 --> B4["LightGBM + 보정<br/>워크포워드 검증"]
-        B4 --> B5["고정 등급 FS1~FS3"]
+        B4 --> B5["고정 등급 FS1~FS3<br/>+ 실적연도별 등급 이력"]
         B2 --> B6["진단 규칙 34종<br/>한국어 소견"]
         B2 --> B7["브랜드 상관·<br/>꼬리손실(Euler ES)"]
     end
     subgraph APP["서비스 · Streamlit"]
         direction TB
         C1["FRANSCORE<br/>현황·상세·참고의견서"]
-        C2["일괄 조회"]
-        C3["점검 큐"]
-        C4["여신 포트폴리오"]
+        C6["브랜드 탐색·비교"]
+        C2["일괄 조회<br/>+ 사업자 휴·폐업"]
+        C3["점검 큐<br/>+ 변경 이력"]
+        C4["여신 포트폴리오<br/>행내 장부·꼬리손실"]
+        C7["등급 검증<br/>은행 연체 자료"]
         C5["AI 상담<br/>RAG + Gemini"]
     end
     SRC --> PIPE --> APP
@@ -169,8 +186,8 @@ flowchart LR
 | **ML·통계** | ![LightGBM](https://img.shields.io/badge/LightGBM-3E7E3E?style=flat-square) ![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=flat-square&logo=scikitlearn&logoColor=white) ![SHAP](https://img.shields.io/badge/SHAP-FF0D57?style=flat-square) ![SciPy](https://img.shields.io/badge/SciPy-8CAAE6?style=flat-square&logo=scipy&logoColor=white) |
 | **LLM·검색** | ![Gemini](https://img.shields.io/badge/Gemini_2.5_Flash-8E75B2?style=flat-square&logo=googlegemini&logoColor=white) ![RAG](https://img.shields.io/badge/TF--IDF_RAG-555555?style=flat-square) |
 | **App** | ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white) ![Plotly](https://img.shields.io/badge/Plotly-3F4F75?style=flat-square&logo=plotly&logoColor=white) |
-| **Quality** | ![pytest](https://img.shields.io/badge/pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white) ![Ruff](https://img.shields.io/badge/Ruff-D7FF64?style=flat-square&logo=ruff&logoColor=black) |
-| **Data sources** | 공정거래위원회 가맹사업정보 오픈API · 금융감독원 OPEN DART · 네이버 데이터랩·검색 API |
+| **Quality** | ![pytest](https://img.shields.io/badge/pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white) ![Ruff](https://img.shields.io/badge/Ruff-D7FF64?style=flat-square&logo=ruff&logoColor=black) ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white) |
+| **Data sources** | 공정거래위원회 가맹사업정보 오픈API · 금융감독원 OPEN DART · 네이버 데이터랩·검색 API · 국세청 사업자등록 상태조회 · 지방행정 인허가 |
 
 ---
 
@@ -187,6 +204,7 @@ python run_pipeline.py --step all         # data/raw 스냅샷으로 전 파이�
 pytest -q                                 # 단위 · 정합성 · 전 화면 스모크 테스트
 python tools/check_doc_numbers.py         # 문서에 적힌 수치 ↔ 산출물 대조
 python tools/readme_charts.py             # 이 README 의 차트를 산출물에서 다시 그리기
+python -m src.localdata --csv <인허가 파일> --scope 전국   # 월별 인허가 폐점 신호 → 브랜드 상세에 표시
 ```
 
 <details>
@@ -196,8 +214,8 @@ python tools/readme_charts.py             # 이 README 의 차트를 산출물�
 |---|---|---|
 | `GEMINI_API_KEY` | aistudio.google.com | AI 상담은 수집된 사실을 표로 정리해 답변, 뉴스 추출은 규칙기반 |
 | `NAVER_CLIENT_ID` / `_SECRET` | developers.naver.com | 뉴스는 Google News RSS(제목만) |
-| `DART_API_KEY` | opendart.fss.or.kr | 본부 재무 재수집 불가 (포함된 산출물은 그대로 사용) |
-| `DATA_GO_KR_KEY` | data.go.kr | 공정위 공개 데모키로 대체 |
+| `DART_API_KEY` | opendart.fss.or.kr | 본부 재무 재수집·감사의견 원문 대조(`tools/verify_audit_opinions.py`) 불가 — 포함된 산출물은 그대로 사용 |
+| `DATA_GO_KR_KEY` | data.go.kr | 새 공시 수집, 국세청 휴·폐업 조회(데이터셋 15081808 활용신청 필요) 불가 — 저장된 스냅샷으로 전 화면 동작 |
 
 배포는 [DEPLOY.md](DEPLOY.md) — Streamlit Community Cloud(Python 3.13 지정)·사내망 이식 절차.
 </details>
@@ -215,14 +233,17 @@ KB_franSCORE/
 │  ├─ dart.py ifrmp.py naver.py             # 본부 재무(DART) · 정보공개서 · 검색수요/뉴스
 │  ├─ features.py labels.py                 # 피처 49개 · 라벨 (시점 누출 검사)
 │  ├─ model.py evaluate.py backtest.py      # 학습 · 기준모형 · 보정 · 워크포워드
-│  ├─ score.py diagnosis.py grading.py      # 최신 점수 · 진단 규칙 34종 · 등급/순서 규칙
-│  ├─ portfolio.py correlation.py           # 집중도 · 브랜드 상관 · 꼬리손실
-│  ├─ guidance.py report.py batch.py        # 확인 서류 가이드 · 참고의견서 · 일괄 조회
+│  ├─ score.py coverage.py grading.py       # 최신 점수·실적연도별 등급 이력 · 평가 범위 보정 · 등급/순서 규칙
+│  ├─ diagnosis.py guidance.py report.py    # 진단 규칙 34종 · 확인 서류 가이드 · 참고의견서
+│  ├─ portfolio.py correlation.py loanbook.py   # 집중도 · 브랜드 상관 · 꼬리손실 · 행내 장부 업로드
+│  ├─ batch.py delinquency.py               # 일괄 조회 · 은행 연체 자료 등급 검증
+│  ├─ nts.py localdata.py                   # 국세청 휴·폐업 · 지자체 인허가 월별 신호
 │  ├─ llm.py news_llm.py rag.py chat.py     # Gemini · 뉴스 사건 추출 · RAG · 상담
 │  ├─ app.py theme.py                       # Streamlit 셸 · 디자인 시스템
-│  └─ views/                                # 화면 6종
+│  └─ views/                                # 화면 8종
 ├─ tests/                   # 단위 · 정합성 · 개인정보 · 전 화면 스모크
-├─ tools/                   # 문서 수치 대조 · README 차트 · 품질 점검 스크립트
+├─ tools/                   # 문서 수치 대조 · README 차트 · 감사의견 원문 대조 · 품질 점검
+├─ .github/workflows/       # CI(린트·테스트·문서 대조) · 수동 갱신 배치
 ├─ data/raw/ data/processed/ outputs/       # 원본 스냅샷 · 가공 데이터 · 산출물
 └─ docs/                    # 검증 결과 · 기술설명서 · 방법론 · 사용 명세 · 운영 설계
 ```
@@ -242,10 +263,12 @@ KB_franSCORE/
 
 ## ⚠️ Limitations
 
-- 라벨은 부도가 아니라 **공시 지표 기반 구조악화 사건**입니다. 브랜드 악화가 개별 차주 부도로 이어지는지는 은행 내부 데이터로 검증해야 합니다.
-- 여신 익스포저는 **공시 창업비용 기반 추정치**입니다. 은행 실여신 CSV(`brand_id, exposure`)를 연결하면 같은 화면이 실측 기준으로 바뀝니다.
-- 본부 재무는 자격 브랜드 기준 커버리지 13.8%(가맹점 가중 48.1%)이고, 감사의견은 본문 자동 판독이라 **'원문 확인 필요'** 로만 표시합니다.
-- 연 1회 공시에 기반한 **연간 브랜드 오버레이**입니다 — 월 단위 차주 조기경보를 대체하지 않고 그 위에 얹습니다.
+- 라벨은 부도가 아니라 **공시 지표 기반 구조악화 사건**입니다. 은행 연체와의 관계는 **등급 검증** 화면으로 바로 검증하도록 절차를 만들어 두었지만, 실제 은행 연체 자료로 돌린 결과는 아직 없습니다(화면 시연은 가상 자료).
+- 여신 익스포저 기본값은 **공시 창업비용 기반 추정치**입니다. 행내 장부를 올리면 그 장부로 계산합니다(세션 메모리에서만 처리).
+- 본부 재무는 자격 브랜드 기준 커버리지 13.8%(가맹점 가중 48.1%)입니다. 감사의견 판독은 감사인의 보고서 구간만 읽도록 고쳤지만, DART 원문 대조(키 필요)를 돌리기 전까지는 **'원문 확인 필요'** 로만 표시합니다.
+- 공시 공백 보정으로 평가한 79개 브랜드는 과거 백테스트 표본 밖입니다 — 화면에 그 사실과 근거를 함께 적습니다.
+- 월 단위 신호는 준비 단계입니다. 국세청 휴·폐업은 키와 데이터셋 활용신청 뒤에 동작하고, 인허가 폐점 신호는 전국 파일(약 930MB)이나 API 키로 신호표를 만들어야 화면에 나타납니다.
+- 공개 데모는 실명 공시 데이터로 **방법론을 시연**하는 화면입니다 — 특정 브랜드에 대한 평가·권유가 아니며 등급을 인용·배포하지 않아야 합니다.
 
 ---
 

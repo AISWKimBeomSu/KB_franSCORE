@@ -107,8 +107,8 @@ https://github.com/AISWKimBeomSu/KB_franSCORE/blob/main/src/app.py
 
 ### 1-2. API 키 등록 (선택)
 
-**키가 하나도 없어도 앱은 정상 동작합니다.** 새로 clone 한 상태에서 키 없이 5개
-화면이 전부 뜨는 것을 실측 확인했습니다. 이미 수집해 둔 산출물(점수·진단 소견·
+**키가 하나도 없어도 앱은 정상 동작합니다.** 새로 clone 한 상태에서 키 없이 8개
+화면이 전부 뜨는 것을 실측 확인했습니다(전 화면 스모크 테스트가 매 푸시 CI 에서 같은 확인을 합니다). 이미 수집해 둔 산출물(점수·진단 소견·
 로고 611건·검색수요 292건)이 저장소에 들어 있기 때문입니다.
 
 키는 **다시 수집하거나 AI 상담 답변을 생성할 때만** 필요합니다.
@@ -117,7 +117,8 @@ https://github.com/AISWKimBeomSu/KB_franSCORE/blob/main/src/app.py
 |---|---|---|
 | `GEMINI_API_KEY`<br>`GEMINI_API_KEY_2` | AI 상담이 답변을 만들지 않고 **수집된 사실만 정리**해 보여줍니다 | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | `NCP_API_KEY_ID`<br>`NCP_API_KEY` | 이미 수집된 292개 브랜드의 검색수요는 **그대로 보입니다**. 갱신만 안 됩니다 | NCP 콘솔 → NAVER API HUB → Application |
-| `DART_API_KEY` | 이미 수집된 본부 재무는 그대로 보입니다. 갱신만 안 됩니다 | [opendart.fss.or.kr](https://opendart.fss.or.kr) |
+| `DART_API_KEY` | 이미 수집된 본부 재무는 그대로 보입니다. 갱신과 감사의견 원문 대조만 안 됩니다 | [opendart.fss.or.kr](https://opendart.fss.or.kr) |
+| `DATA_GO_KR_KEY` | 일괄 조회의 차주 사업자 상태가 '확인불가'로 표시됩니다. 「국세청_사업자등록정보 진위확인 및 상태조회 서비스」(15081808) **활용신청을 따로** 해야 합니다 | [data.go.kr](https://www.data.go.kr/data/15081808/openapi.do) |
 
 등록: 배포된 앱 → 우측 하단 `Manage app` → `Settings` → `Secrets` 에 붙여넣습니다.
 
@@ -127,6 +128,7 @@ GEMINI_API_KEY_2 = "예비-키 (선택)"
 NCP_API_KEY_ID = "여기에-아이디"
 NCP_API_KEY = "여기에-시크릿"
 DART_API_KEY = "여기에-키"
+DATA_GO_KR_KEY = "여기에-키 (공공데이터포털 일반 인증키 — Decoding 값)"
 ```
 
 저장하면 앱이 자동 재시작합니다. `src/common.load_secrets()` 가 이 값을 환경변수로

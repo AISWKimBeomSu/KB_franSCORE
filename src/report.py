@@ -795,6 +795,9 @@ def _overview(ctx: dict, name: str) -> str:
             if d.get("category") else ""
         dem = (f"브랜드 {_signed_pct(_num(d.get('brand_yoy')))}{cat} "
                "<span class='muted'>(최근 12개월 대비 직전 12개월, 네이버 데이터랩)</span>")
+    elif str(b.get("eligibility_basis") or "") not in ("", "정규", "nan"):
+        dem = ("<span class='muted'>수집되지 않음 — 공시 공백 보정으로 새로 평가된 브랜드라 "
+               "다음 수집 때 포함됩니다</span>")
     else:
         dem = "<span class='muted'>수집되지 않음 — 가맹점 수가 많은 브랜드부터 수집합니다</span>"
     rows = [

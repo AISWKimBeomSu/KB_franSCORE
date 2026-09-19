@@ -735,8 +735,14 @@ def _tab_demand(brand_id: str, name: str) -> None:
         return
     d = (obj.get("brands") or {}).get(brand_id)
     if not d:
-        st.caption(f"'{name}'의 검색 추세는 아직 수집되지 않았습니다. "
-                   "검색수요는 가맹점 수가 많은 상위 브랜드부터 수집합니다.")
+        df, _ = C.load_scores()
+        row = df[df["brand_id"].astype(str) == str(brand_id)] if df is not None else None
+        if row is not None and not row.empty and C.is_bridged(row.iloc[0]):
+            st.caption(f"'{name}'은 공시 공백 보정으로 이번에 새로 평가된 브랜드라 검색 추세가 아직 "
+                       "수집되지 않았습니다. 다음 수집 때 포함됩니다.")
+        else:
+            st.caption(f"'{name}'의 검색 추세는 아직 수집되지 않았습니다. "
+                       "검색수요는 가맹점 수가 많은 상위 브랜드부터 수집합니다.")
         return
 
     b, cy = d.get("brand_yoy"), d.get("category_yoy")
