@@ -395,31 +395,189 @@ def parse_financials(flat: str) -> dict[str, float | None]:
     return res
 
 
-# 감사의견 판정 — **제목**으로 가른다.
-# 본문 문자열로 찾으면 오탐이 난다: 이디야 보고서의 "적정의견이 표명되었습니다"는
-# '기타사항' 단락에서 **전기 타감사인의** 의견을 언급한 문장이지 당기 의견이 아니다.
-# 변형의견은 전용 제목(한정의견근거·부적정의견·의견거절)을 반드시 달게 되어 있으므로
-# 변형을 먼저 확인하고, 없을 때만 표준 적정 결어를 확인한다.
-_OPINION_RULES = (
-    (re.compile(r"의견\s*거절|의견을\s*표명하지\s*않습니다"), "의견거절"),
-    (re.compile(r"부적정의견"), "부적정"),
-    (re.compile(r"한정의견"), "한정"),
-    (re.compile(r"공정하게\s*표시하고\s*있습니다"), "적정"),
-)
-# '계속기업'은 **모든** 감사보고서의 경영진·감사인 책임 문단에 상투적으로 등장한다
-# (실측: 정상 기업 3곳 모두 등장). 회계감사기준 570 이 요구하는 별도 제목인
-# "계속기업 관련 중요한 불확실성" 이 있을 때만 실제 신호로 본다 — 정상 3곳 모두 0건.
+# ---------------------------------------------------------------------------
+# 5) 감사의견·계속기업 판독
+# ---------------------------------------------------------------------------
+# ⛔ 초기 구현은 **문서 전체**에서 의견거절 → 부적정의견 → 한정의견 → 적정 결어 순으로
+#    '어디에든 있으면' 채택했다. 그런데 감사보고서 문서에는 감사인의 보고서 뒤로 재무제표·
+#    주석·외부감사 실시내용·내부회계관리제도 검토보고서가 한데 붙어 있고, 보고서 안에도
+#    당기 의견이 아닌 의견 문구가 들어 있다(표준 문안 예):
+#      · 기타사항의 전기 의견 — "…전기 재무제표에 대한 감사보고서에는 한정의견이 표명되었습니다"
+#      · 연결/별도 교차 언급 — "…동 연결재무제표에 대하여 의견거절을 표명하였습니다"
+#      · 내부회계관리제도 검토 — "…감사를 수행하지 않았으며 따라서 감사의견을 표명하지 않습니다"
+#      · 주석의 피투자회사 언급 — "관계기업 B사의 감사인은 …의견거절을 표명하였습니다"
+#    심각한 쪽부터 보는 우선순위까지 겹쳐, 이런 문장 하나만 있어도 당기 적정 결어를 이긴다.
+#    실측 징후: 최신연도 본부의 약 15%가 비적정으로 판독됐고, 자본·순이익이 늘던 본부가
+#    2년 연속 '의견거절'로 읽혔다. (행별 원문 대조는 tools/verify_audit_opinions.py 가 한다 —
+#    외감 첫해의 기초잔액 한정처럼 **실제** 변형의견도 섞여 있으므로 일괄 적정 처리는 금물이다.)
+#
+# 그래서 이제는 **감사인의 보고서 구간 안에서 가장 먼저 나오는 의견 신호 하나**만 본다.
+#   ① 구간: '…감사인의 감사보고서' 제목 중 수신인('귀중')이 뒤따르는 것(목차의 같은 제목은
+#      제외)부터, 맺음말('감사보고서일 … 현재로 유효')·'(첨부)재무제표'·재무상태표 표 머리·
+#      '외부감사 실시내용'·'내부회계관리제도 검토/감사' 중 가장 이른 곳까지.
+#   ② 의견 제목: '의견거절'·'부적정의견'·'한정의견'·'감사의견' 이 앞뒤에 한글이 붙지 않은
+#      독립 토큰이고 **본문('우리는'·'우리의 의견으로는'·'본 감사인')을 바로 이끌 때만** 제목이다.
+#      '한정의견이 표명되었습니다'·'감사의견 표명의 근거' 같은 문중 언급은 제목이 아니다.
+#   ③ 결어: '우리의 의견으로는 … 공정하게 표시하고 있습니다'(그 문장에 '제외하고'가 있으면 한정),
+#      '… 있지 않습니다/아니합니다'(부적정), '재무제표에 대하여 의견을 표명하지 않습니다/
+#      아니합니다'(의견거절). **현재형만** 본다 — 기타사항의 전기 언급은 과거형('않았습니다')이다.
+#   판정: 첫 제목이 변형의견이면 그것. 첫 제목이 '감사의견'이면 바로 뒤 결어가 변형일 때만 결어를
+#   따르고(서식 이탈 방어) 아니면 적정. 제목이 없으면 첫 결어. 둘 다 없으면 None —
+#   읽지 못한 것을 '적정'으로 채우면 확인하지 않은 것을 확인했다고 말하는 셈이다.
+#   (구간을 못 찾거나 구간에서 못 읽으면 같은 규칙을 문서 전체에 적용한다 — 보고서가 문서
+#    맨 앞에 오므로 '첫 신호' 규칙은 전체 문서에서도 당기 의견을 먼저 만난다.)
+# 문안 근거: 회계감사기준 700(적정)·705(한정·부적정·의견거절)·706(강조·기타사항)·570(계속기업).
+# 2018 개정 전 구형 서식(감사인의 책임 → [근거] → 의견 순서)도 같은 규칙으로 읽힌다.
+_HANGUL = "가-힣"
+
+
+def _spaced(word: str) -> str:
+    """'감사의견' → 글자 사이 공백 허용 패턴. 원문 제목은 '감 사 의 견' 처럼 자간을 벌리기도 한다."""
+    return r"\s*".join(re.escape(c) for c in word if not c.isspace())
+
+
+def _token(word: str) -> str:
+    """앞뒤에 한글이 붙지 않은 독립 토큰 — '감사의견근거'·'한정의견이' 는 걸리지 않는다."""
+    return rf"(?<![{_HANGUL}]){_spaced(word)}(?![{_HANGUL}])"
+
+
+_OPINION_LABEL = {"의견거절": "의견거절", "부적정의견": "부적정", "한정의견": "한정", "감사의견": "적정"}
+_OPINION_TOKEN = re.compile("|".join(_token(w) for w in _OPINION_LABEL))
+# 제목은 곧바로 본문 첫 문장을 이끈다(감사기준서 문안은 1인칭 복수 '우리'로 쓴다; 구형은 '본 감사인').
+_LEADS_PROSE = re.compile(r"\s*[:：.)\]]?\s*(?:우\s*리|본\s*감\s*사\s*인)")
+# 문장 경계 — 마침표는 날짜·소수점('2023. 12. 31')일 때만 문장 안으로 허용한다.
+_NOSTOP = r"(?:[^.]|(?<=\d)\.(?=\s*\d))"
+_OPINION_SENT = re.compile(
+    r"(?P<disc>재\s*무\s*제\s*표\s*에\s*대\s*(?:하\s*여|한)\s*(?:감\s*사\s*)?의\s*견\s*을\s*"
+    r"표\s*명\s*하\s*지\s*(?:않\s*습\s*니\s*다|아\s*니\s*합\s*니\s*다))"
+    rf"|(?:우\s*리|본\s*감\s*사\s*인)\s*의\s*의\s*견\s*으\s*로\s*는(?P<body>{_NOSTOP}{{0,1000}}?)"
+    r"공\s*정\s*하\s*게\s*표\s*시\s*하\s*고\s*있(?P<neg>\s*지\s*(?:않|아\s*니))?")
+_QUALIFIER = re.compile(r"제\s*외\s*하\s*고")
+_SENT_AFTER_HEAD = 2000          # 제목 뒤 이 거리 안의 첫 결어만 그 제목의 결어로 본다
+
+# 감사인의 보고서 구간
+_AR_TITLE = re.compile(rf"(?:(?:{_spaced('독립된')}|{_spaced('외부')})\s*)?{_spaced('감사인의감사보고서')}")
+_ADDRESSEE = re.compile(r"귀\s*중")
+_ADDRESSEE_WINDOW = 250
+_AR_END = re.compile(
+    r"감\s*사\s*보\s*고\s*서\s*일.{0,40}?현\s*재\s*로\s*유\s*효"          # 표준 맺음말
+    r"|\(\s*첨\s*부\s*\)\s*재\s*무\s*제\s*표"
+    rf"|{_spaced('외부감사실시내용')}"
+    rf"|{_spaced('내부회계관리제도')}\s*(?:검\s*토|감\s*사)\s*(?:보\s*고\s*서|의\s*견)")
+_FS_HEAD = re.compile(rf"{_spaced('재무상태표')}|{_spaced('대차대조표')}")
+_AR_MIN_OFFSET = 50              # 제목 자신을 끝 표식으로 오인하지 않도록
+_AR_MAX = 30_000                 # 끝 표식을 못 찾을 때의 상한(보고서 본문은 통상 3천~1만 자)
+
+# 계속기업 — '계속기업'은 **모든** 감사보고서의 경영진·감사인 책임 문단에 상투적으로 등장한다
+# (실측: 정상 기업 3곳 모두 등장). 그래서 신호는 두 경로로만 인정한다.
+#   ⓐ 회계감사기준 570 이 요구하는 별도 제목 "계속기업 관련 중요한 불확실성" (기존 규칙, 문서 전체)
+#   ⓑ 변형의견의 **근거 단락**(의견거절근거·한정의견근거·부적정의견근거) 또는 구형 서식의
+#      강조사항 단락이 계속기업 불확실성·의문을 인용할 때 (감사인의 보고서 구간 안에서만)
+# ⓑ 가 없으면 계속기업 때문에 의견을 거절한 보고서가 오히려 '계속기업 문제 없음(0)'이 된다 —
+#    의견거절 보고서는 ⓐ의 별도 제목을 달지 않고 그 사유를 의견거절근거에 쓰기 때문이다
+#    (실측: '의견거절' 판독 행의 계속기업 표시율 1.8% < '적정' 4.0%).
+#    책임 문단의 상투 문구("…중요한 불확실성이 존재하는지 여부에 대하여 결론을 내립니다")는
+#    근거·강조사항 단락이 아니므로 ⓑ에 걸리지 않는다.
 _GC_HEADING = re.compile(r"계속기업\s*관련\s*중요한\s*불확실성")
+_NOT_REF = r"(?!\s*단\s*락)"      # '…근거 단락에 기술된' 같은 문중 참조는 단락 제목이 아니다
+_BASIS_HEAD = re.compile(
+    rf"(?<![{_HANGUL}])(?:{_spaced('의견거절')}|{_spaced('부적정의견')}|{_spaced('한정의견')})"
+    rf"\s*(?:의\s*)?근\s*거(?![{_HANGUL}]){_NOT_REF}"
+    rf"|{_token('강조사항')}{_NOT_REF}")
+_SECTION_END = re.compile("|".join(
+    [_token(w) + _NOT_REF for w in (*_OPINION_LABEL, "감사의견근거", "강조사항", "핵심감사사항",
+                                    "기타사항", "기타정보")]
+    + [_BASIS_HEAD.pattern,
+       rf"{_spaced('계속기업관련중요한불확실성')}{_NOT_REF}",
+       rf"{_spaced('재무제표에대한경영진')}",
+       rf"{_spaced('감사인의책임')}{_NOT_REF}"]))
+_SECTION_MAX = 4000
+_GC_CITE = re.compile(r"계\s*속\s*기\s*업.{0,150}?(?:불\s*확\s*실|의\s*문)"
+                      r"|(?:불\s*확\s*실|의\s*문).{0,150}?계\s*속\s*기\s*업")
+
+
+def _auditor_report_span(flat: str, *, strict: bool = False) -> tuple[int, int] | None:
+    """감사인의 보고서 구간 [시작, 끝). 제목이 없으면 None.
+
+    목차에도 같은 제목이 있으므로 **수신인('…귀중')이 다음 제목보다 먼저 뒤따르는 제목**을
+    시작으로 삼는다. (목차가 짧으면 목차의 제목에서 250자 안에 본문 수신인이 보인다 — 다음
+    제목에서 창을 끊지 않으면 목차를 보고서로 오인한다.) 그런 제목이 없으면 마지막 제목을 쓴다
+    (목차는 본문보다 앞에 온다). strict=True 면 수신인이 확인된 경우만 돌려준다 — 검증 도구가
+    ZIP 안의 여러 파일 중 보고서 본문 파일을 고를 때 쓴다.
+    """
+    titles = list(_AR_TITLE.finditer(flat))
+    if not titles:
+        return None
+    nxt = [t.start() for t in titles[1:]] + [len(flat)]
+    start = next((m.start() for m, stop in zip(titles, nxt, strict=True)
+                  if _ADDRESSEE.search(flat, m.end(), min(stop, m.end() + _ADDRESSEE_WINDOW))), None)
+    if start is None:
+        if strict:
+            return None
+        start = titles[-1].start()
+    ends = [m.start() for m in [_AR_END.search(flat, start + _AR_MIN_OFFSET)] if m]
+    for m in _FS_HEAD.finditer(flat, start + _AR_MIN_OFFSET):
+        # 보고서 문장도 '재무상태표'를 말한다 — 단위 표기가 뒤따르는 **표 머리**만 끝으로 본다
+        if _UNIT_HINT.search(flat, m.end(), m.end() + _UNIT_LOOKAHEAD):
+            ends.append(m.start())
+            break
+    return start, min(ends, default=min(len(flat), start + _AR_MAX))
+
+
+def _sentence_label(m: re.Match) -> str:
+    if m.group("disc"):
+        return "의견거절"
+    if m.group("neg"):
+        return "부적정"
+    return "한정" if _QUALIFIER.search(m.group("body") or "") else "적정"
+
+
+def _read_opinion(scope: str) -> tuple[str | None, str]:
+    """구간에서 당기 의견을 읽는다 → (판정, 근거 발췌). 규칙은 위 주석 ①~③ 참조.
+
+    근거 발췌(채택한 제목·결어 부근 120자)는 판정에 쓰지 않는다 — 검증 도구가 사람이
+    대조할 수 있도록 CSV 에 남기는 용도다.
+    """
+    head = next((m for m in _OPINION_TOKEN.finditer(scope) if _LEADS_PROSE.match(scope, m.end())),
+                None)
+    if head is not None:
+        label = _OPINION_LABEL[re.sub(r"\s+", "", head.group(0))]
+        if label != "적정":
+            return label, scope[head.start():head.start() + 120]
+        sent = _OPINION_SENT.search(scope, head.end(), head.end() + _SENT_AFTER_HEAD)
+        if sent is not None and _sentence_label(sent) != "적정":
+            return _sentence_label(sent), scope[sent.start():sent.start() + 120]
+        return "적정", scope[head.start():head.start() + 120]
+    sent = _OPINION_SENT.search(scope)
+    if sent is not None:
+        return _sentence_label(sent), scope[sent.start():sent.start() + 120]
+    return None, ""
+
+
+def _gc_from_basis(scope: str) -> bool:
+    """변형의견 근거 단락·구형 강조사항 단락이 계속기업 불확실성을 인용하는가 (규칙 ⓑ)."""
+    for m in _BASIS_HEAD.finditer(scope):
+        tail = scope[m.end():m.end() + _SECTION_MAX]
+        end = _SECTION_END.search(tail)
+        if _GC_CITE.search(tail[:end.start()] if end else tail):
+            return True
+    return False
 
 
 def parse_qualitative(flat: str) -> dict:
-    op = None
-    for pat, label in _OPINION_RULES:
-        if pat.search(flat):
-            op = label
-            break
-    return {"audit_opinion": op,
-            "going_concern_flag": int(bool(_GC_HEADING.search(flat)))}
+    """감사의견(적정/한정/부적정/의견거절/None)과 계속기업 불확실성 여부(0/1)를 읽는다.
+
+    감사인의 보고서 구간만 본다 — 주석·첨부서류·기타사항의 전기 언급·연결/별도 교차 언급·
+    내부회계관리제도 검토 문구가 당기 의견으로 읽히던 오판독을 막기 위해서다(위 주석 참조).
+    """
+    span = _auditor_report_span(flat)
+    scope = flat[span[0]:span[1]] if span else flat
+    op, _ = _read_opinion(scope)
+    if op is None and span is not None:
+        scope = flat                  # 구간을 잘못 잡은 것 — 같은 규칙을 문서 전체에 적용한다
+        op, _ = _read_opinion(scope)
+    gc = bool(_GC_HEADING.search(flat)) or _gc_from_basis(scope)
+    return {"audit_opinion": op, "going_concern_flag": int(gc)}
 
 
 def _corp_filings(corp_code: str, years: tuple[int, ...], *, key: str,
