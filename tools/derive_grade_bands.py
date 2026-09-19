@@ -387,8 +387,8 @@ def main() -> None:
                     "ci_lo": round(r["ci_lo"], 6), "ci_hi": round(r["ci_hi"], 6)}
                    for r in rows],
         "deploy_calibrator": "calibrator_deploy.joblib",
-        "label_note": ("악화 = 공정거래위원회 가맹사업 공시 지표(가맹점수·계약종료·"
-                       "평균매출·면적당매출)가 업종×연도 하위 구간에 진입하는 사건이다. "
+        "label_note": ("악화 = 공정거래위원회 가맹사업 공시 지표 3종(가맹점 순감률·실질 평균매출 "
+                       "증가율·계약종료율)이 업종×연도 불리한 쪽 구간에 진입하는 사건이다. "
                        "차주의 채무불이행 확률이 아니다."),
         "rule": {"min_grade_n": MIN_GRADE_N,
                  "criteria": ["등급별 최소 표본", "실현율 단조 증가",
