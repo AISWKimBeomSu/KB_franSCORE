@@ -387,7 +387,7 @@ def build_portfolio(cfg: dict) -> None:
             "units": {"exposure": "백만원(MKRW)", "display": "억원 = 백만원 / 100"},
             # ⚠️ 이 문장은 pd_* → deterioration_* 일괄 개명(156건) 때 조사가 깨진 채
             #    산출물에 실려 나갔다("부도확률(PD)이 사용한 것으로"). 뜻이 통하지 않을 뿐
-            #    아니라, 우리 산출물을 PD 라고 주장하는 것처럼 읽혀 MODEL_USE_SPEC 의
+            #    아니라, 이 산출물을 PD 라고 주장하는 것처럼 읽혀 MODEL_USE_SPEC 의
             #    금지 용도와 정면으로 충돌한다. 명세와 같은 말을 하도록 다시 쓴다.
             "risk_definition": (
                 "악화확률은 모델이 예측한 '1년 내 구조악화 전환 확률'입니다. 공정거래위원회 "

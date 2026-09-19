@@ -222,7 +222,7 @@ def main() -> int:
     #    움직이지 않는다. 실제로 이 검사는 모형 입력이 39.7% → 48.1% 로 바뀐 뒤에도
     #    **통과했다.** 눈에 보이는 불일치보다 나쁘다 — 틀린 값을 옳다고 확인해 준다.
     #
-    #    커버리지의 정의는 '우리가 모은 양'이 아니라 **'모형이 실제로 본 양'** 이다.
+    #    커버리지의 정의는 '모은 양'이 아니라 **'모형이 실제로 본 양'** 이다.
     #    그래서 features.parquet 의 f_hq_has_financials 에서 직접 잰다.
     head("⑥-3 본부재무 커버리지 — 모형이 실제로 본 양")
     feat = pd.read_parquet(PROC / "features.parquet", columns=["brand_id", "year",
@@ -268,7 +268,7 @@ def main() -> int:
 
     # 🔬 파서를 **독립 원천으로 검증한다.** 두 원천이 같은 (법인, 회계연도)를 갖는 구간이
     #    있는데, 한쪽은 금감원에 접수된 감사보고서이고 다른 쪽은 사람이 화면에서 옮긴
-    #    정보공개서다. 두 값이 맞으면 파서가 옳다는 것을 **우리 주장이 아닌 제3자 문서로**
+    #    정보공개서다. 두 값이 맞으면 파서가 옳다는 것을 **자기 주장이 아닌 제3자 문서로**
     #    말할 수 있다. 겹치는 구간을 합병 단계에서 DART 로 덮으므로, 대조는 덮기 전
     #    원본(ifrmp_web_financials.parquet)과 한다.
     from src.dart import norm_corp
@@ -583,7 +583,7 @@ def main() -> int:
     # 결함 전수 목록은 **표를 세어서** 건수를 정한다. 사람이 헤아려 적으면 항목을
     # 추가할 때마다 어긋난다 — 그 어긋남이 바로 이 문서가 고발하는 종류의 결함이다.
     tech = _txt("TECH")
-    sec = tech.split("## 43. 우리가 스스로 잡은 결함")[1].split("## 44.")[0]
+    sec = tech.split("## 43. 스스로 잡은 결함")[1].split("## 44.")[0]
     rows = [int(m.group(1)) for m in re.finditer(r"^\|\s*(\d+)\s*\|", sec, re.M)]
     if rows:
         if sorted(rows) != list(range(1, len(rows) + 1)):

@@ -9,7 +9,7 @@
 
     그리고 공개 산출물 `outputs/scores_latest.csv` 의 컬럼명이 `pd_1y`·`pd_raw`·
     `pd_calibrated_step`·`pd_rank_pct` 였다. 은행 분석가가 이 CSV 를 열면 명세가
-    금지한 바로 그 오독을 한다 — 그것도 우리가 이름으로 유도한 오독이다.
+    금지한 바로 그 오독을 한다 — 그것도 이름이 유도한 오독이다.
 
     라벨은 부도가 아니라 **공시 기반 구조악화 전환**이다. 실제 여신 부도·연체
     라벨을 한 건도 보지 못했으므로 PD 라고 부를 근거가 없다. 이름은 주장이다.
@@ -21,7 +21,7 @@
 무엇을 막지 않는가
     바젤 IRB 의 PD 개념을 **참조**하는 것은 정당하다 — 확률 하한 관행을 준용한
     근거를 밝히거나, 규제자본 산출에 쓸 수 없는 이유를 설명할 때가 그렇다.
-    금지 대상은 '우리 숫자가 PD 다'라는 주장뿐이다.
+    금지 대상은 '이 숫자가 PD 다'라는 주장뿐이다.
 
 실행: python tests/test_naming.py
 """
@@ -52,12 +52,12 @@ OLD_TOKENS = re.compile(
 # B. 산출물을 PD 라고 부르는 문장. 개념 참조와 구별되도록 **주장 형태**만 잡는다.
 CLAIM_PATTERNS = [
     (re.compile(r"PD\s*로\s*쓰"),               "'PD로 쓰' — 산출물을 PD로 사용하라는 지시"),
-    (re.compile(r"EL\s*=\s*exposure\s*×\s*PD"), "EL 공식에서 우리 확률을 PD 라고 표기"),
-    (re.compile(r"EL_i\s*=\s*exposure_i\s*×\s*PD_i"), "EL 공식에서 우리 확률을 PD 라고 표기"),
-    (re.compile(r"스트레스\s*PD"),               "'스트레스 PD' — 우리 확률에 PD 명칭 사용"),
+    (re.compile(r"EL\s*=\s*exposure\s*×\s*PD"), "EL 공식에서 이 확률을 PD 라고 표기"),
+    (re.compile(r"EL_i\s*=\s*exposure_i\s*×\s*PD_i"), "EL 공식에서 이 확률을 PD 라고 표기"),
+    (re.compile(r"스트레스\s*PD"),               "'스트레스 PD' — 이 확률에 PD 명칭 사용"),
     (re.compile(r"PD\s*대용"),                   "'PD 대용' — 대용이라도 PD 명칭을 앞세운다"),
     (re.compile(r"PD\s*컬럼"),                   "'PD 컬럼' — 산출물 컬럼을 PD 로 지칭"),
-    (re.compile(r"PD\s*상[·・]?\s*하한\s*적용"),  "'PD 상·하한 적용' — 우리 확률에 PD 명칭 사용"),
+    (re.compile(r"PD\s*상[·・]?\s*하한\s*적용"),  "'PD 상·하한 적용' — 이 확률에 PD 명칭 사용"),
 ]
 
 RESULTS: list[tuple[bool, str, str]] = []
@@ -205,7 +205,7 @@ def test_published_artifact_prose() -> None:
 
         "악화확률은 … 확률이다. 부도확률(PD)이 사용한 것으로, 실제 부도율과 다를 수 있습니다."
 
-    로 깨진 채 나갔다. 뜻이 통하지 않을 뿐 아니라 우리 산출물을 PD 라고 주장하는
+    로 깨진 채 나갔다. 뜻이 통하지 않을 뿐 아니라 이 산출물을 PD 라고 주장하는
     것처럼 읽혀 MODEL_USE_SPEC 의 금지 용도와 충돌한다. 소스 검사는 이걸 못 잡는다.
 
     명세가 요구하는 것은 "PD 라는 말을 쓰지 마라"가 아니라 **"숫자와 부인 문구가

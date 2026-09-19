@@ -179,7 +179,7 @@ def classify_intent(question: str, brands: list[str], industry: dict | None,
     if has_history and _RE_FOLLOWUP.match(q):
         return "followup"
     if len(q) <= 12 and not _RE_METRIC.search(q):
-        # 짧은데 아무것도 안 잡혔다 — 인사이거나 우리 범위 밖이다
+        # 짧은데 아무것도 안 잡혔다 — 인사이거나 서비스 범위 밖이다
         return "off_domain" if _RE_OFF.search(q) else "greeting"
     return "general"
 

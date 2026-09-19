@@ -231,7 +231,7 @@ _STORE_ROW = re.compile(r"\b(19\d{2}|20\d{2})\s+((?:[\d,]+|-)(?:\s+(?:[\d,]+|-))
 def parse_store_counts(sections: dict) -> list[dict]:
     """RB_TTYR_FRCS_CNT → 연도별 점포 유출입 (연초·신규·계약종료·해지·명의변경·연말).
 
-    이 표는 집계 API 에 없는 **연도별 유출입 내역**이라, 우리 패널의 n_new·n_contract_end
+    이 표는 집계 API 에 없는 **연도별 유출입 내역**이라, 패널의 n_new·n_contract_end
     를 원문으로 교차검증할 수 있는 유일한 공개 원천이다.
     """
     sec = sections.get(STORE_SECTION)

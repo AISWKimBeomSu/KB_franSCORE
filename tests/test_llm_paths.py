@@ -7,7 +7,7 @@
     LLM 분기 전체** — 요청 본문 구성 → responseSchema 변환 → 사고(thought) 파트 제거
     → 응답 검증 → 안전차단/절단/네트워크오류 폴백 → 재시도 — 를 실행·검증한다.
 
-    HTTP 경계에서만 치환하므로 우리가 작성한 코드는 한 줄도 우회되지 않는다.
+    HTTP 경계에서만 치환하므로 작성한 코드는 한 줄도 우회되지 않는다.
 
 실행: python -m tests.test_llm_paths      (종료코드 0 = 전부 통과)
 """
@@ -447,7 +447,7 @@ def test_rag_retrieval(cfg: dict) -> None:
     assert b"__main__" not in raw, (
         "색인 파일에 '__main__' 참조가 있음 — 만든 진입점에서만 로드된다(대시보드에서 실패). "
         "객체가 아니라 state()를 저장해야 한다.")
-    assert b"RagIndex" not in raw, "색인 파일에 우리 클래스 참조가 박혀 있음 (state 저장 아님)"
+    assert b"RagIndex" not in raw, "색인 파일에 프로젝트 클래스 참조가 박혀 있음 (state 저장 아님)"
     loaded = rag.load_index(cfg)
     assert loaded is not None, "저장된 색인을 다시 로드하지 못함"
     hits2 = loaded.retrieve("테스트브랜드 계약종료 급증", k=3)

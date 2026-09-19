@@ -415,7 +415,7 @@ def _simulate_losses(rhos: list[float], thr: np.ndarray, expo: np.ndarray, lgd: 
     X_i = √ρ·Z + √(1−ρ)·ε_i   (Z: 브랜드 공통요인, ε: 개별요인, 둘 다 표준정규)
     브랜드 i 악화  ⟺  X_i < Φ⁻¹(악화확률_i),  손실 = Σ exposure_i × LGD × 1{악화}
 
-    ⚠️ 공통난수(common random numbers)를 쓰는 이유: 우리가 알고 싶은 것은 각 시나리오의
+    ⚠️ 공통난수(common random numbers)를 쓰는 이유: 알고 싶은 것은 각 시나리오의
        절대 손실이 아니라 **두 시나리오의 차이**다. 서로 다른 난수를 쓰면 두 추정치의
        몬테카를로 오차가 각각 실려 차이의 분산이 커진다. 같은 (Z, ε)에 ρ만 바꾸면
        난수 변동이 상쇄되어 차이가 훨씬 정밀하게 추정된다.

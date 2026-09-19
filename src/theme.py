@@ -167,7 +167,7 @@ def plot(fig: go.Figure, *, height: int | None = None, key: str | None = None) -
     """차트 공통 렌더 — 모드바를 숨기고 컨테이너 폭에 맞춘다.
 
     ⚠️ theme=None 이 핵심이다. st.plotly_chart 는 기본값이 theme="streamlit" 이고,
-       그 경우 Streamlit 이 **자기 템플릿으로 우리 템플릿을 덮어쓴다**. 위에서
+       그 경우 Streamlit 이 **자기 템플릿으로 이 앱의 템플릿을 덮어쓴다**. 위에서
        colorway·글꼴·격자색을 아무리 정해도 화면에는 Streamlit 기본값이 나온다.
        실측: 눈금을 13px 로 지정했는데 브라우저에서는 12px 로 렌더됐다.
        trace 에 직접 준 marker 색만 살아남아서, 색이 맞으니 테마가 먹은 줄 알았다.

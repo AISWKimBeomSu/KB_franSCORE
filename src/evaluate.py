@@ -189,7 +189,7 @@ def _apply_calibrator(m, p: np.ndarray, method: str, cfg: dict | None = None) ->
         "100%"·"7천만분의 1"은 수십 건의 검증 관측이 뒷받침할 수 있는 추정이 아니고,
         그대로 `EL = exposure × 악화확률 × LGD` 에 들어가 손실 추정까지 과신하게
         만든다. 여신 실무가 **PD(부도확률)** 에 하한(바젤 IRB 0.03%)과 상한을 두는 것과
-        같은 이유로 준용한다 — 우리 산출물이 PD 라는 뜻은 아니다.
+        같은 이유로 준용한다 — 이 산출물이 PD 라는 뜻은 아니다.
 
     ⚠️ 클립은 **단조 변환**이라 순위가 바뀌지 않는다 — Lift@k·Precision@k·PR-AUC·ROC-AUC
        같은 순위 기반 지표는 영향을 받지 않고, 과신만 억제된다(Brier·EL에만 반영).

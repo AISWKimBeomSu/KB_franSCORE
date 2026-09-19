@@ -153,7 +153,7 @@ def _disclosure_documents(cfg: dict, max_rows: int | None = None) -> list[dict]:
 def _hq_financial_documents(cfg: dict) -> list[dict]:
     """가맹본부 재무 → 자연어 문서 (감사보고서 + 정보공개서 열람분).
 
-    ⭐ 이 층이 코퍼스의 성격을 바꾼다. 기존 disclosure 문서는 우리가 이미 가진 패널 수치를
+    ⭐ 이 층이 코퍼스의 성격을 바꾼다. 기존 disclosure 문서는 이미 가진 패널 수치를
     문장으로 다시 쓴 것이라, 심사메모가 그것을 '인용'해도 사실상 자기 인용이었다
     (자체 감사 지적). 반면 이 문서의 근거는 **외부 1차 문서**다 — 금감원에 접수된
     감사보고서(접수번호로 원문 URL 이 특정된다), 또는 공정위 가맹사업정보제공시스템의
@@ -335,7 +335,7 @@ class RagIndex:
         self.mat_char = self.vec_char.fit_transform(texts)
 
     def state(self) -> dict:
-        """직렬화 가능한 상태 (우리 클래스 참조를 포함하지 않는다)."""
+        """직렬화 가능한 상태 (이 프로젝트의 클래스 참조를 포함하지 않는다)."""
         return {"format": INDEX_FORMAT, "corpus": self.corpus,
                 "vec_word": self.vec_word, "vec_char": self.vec_char,
                 "mat_word": self.mat_word, "mat_char": self.mat_char}
