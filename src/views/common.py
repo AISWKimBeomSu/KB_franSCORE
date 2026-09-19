@@ -179,7 +179,7 @@ def localdata_validity() -> dict | None:
         return None
 
 
-_TREND_KIND = {"악화": "High", "개선": "Low", "유지": "Neutral", "판단보류": "Neutral"}
+_TREND_KIND = {"악화": "High", "확인 필요": "Medium", "개선": "Low", "유지": "Neutral", "판단보류": "Neutral"}
 
 
 def localdata_html(brand_id) -> str:

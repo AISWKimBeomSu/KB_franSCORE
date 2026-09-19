@@ -700,6 +700,7 @@ def _monthly_flows(brand_id: str) -> None:
                                        "%{customdata[1]:,.0f}곳<extra></extra>"))
     fig.update_layout(barmode="relative", height=230, margin={"l": 4, "r": 4, "t": 8, "b": 4},
                       legend={"orientation": "h", "y": 1.12, "x": 0})
+    fig.update_xaxes(tickformat="%Y.%m", dtick="M3")       # 'Oct 2024' 대신 '2024.10'
     theme.plot(fig, key=f"t5_{brand_id}")
     last = f.iloc[-1]
     v = C.localdata_validity()

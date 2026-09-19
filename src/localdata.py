@@ -828,6 +828,10 @@ def _binom_cdf(k: int, n: int, p: float) -> float:
                         for i in range(k + 1)))
 
 
+BULK_SHARE, BULK_MIN = 0.30, 20          # 한 달 폐업이 영업 점포의 30% 이상(최소 20곳)이면 일괄 처리 의심
+CHECK = "확인 필요"
+
+
 def closure_signal(flows: pd.DataFrame, *, window: int = 3, min_base: int = 10, min_events: int = 3,
                    alpha: float = 0.05) -> pd.DataFrame:
     """최근 window 개월 폐업을 전년 같은 기간과 비교한 브랜드별 조기경보.
@@ -843,6 +847,11 @@ def closure_signal(flows: pd.DataFrame, *, window: int = 3, min_base: int = 10, 
     표본오차도 함께 반영하려고 이 방식을 쓴다.
     올해 쪽 단측 p<alpha 이고 폐업 min_events 건 이상이면 악화, 반대쪽이면 개선. 점포 기반이 min_base 미만이거나
     비교 기간(window+13개월)이 flows 에 없으면 판단보류 — 없는 근거로 경보를 만들지 않는다.
+
+    ⚠️ 한 달에 영업 점포의 30% 이상(최소 20곳)이 한꺼번에 폐업 처리되면 '악화'가 아니라 '확인 필요'로 둔다.
+       실측: 영업 186곳 브랜드가 2026년 6월 한 달에 132곳 폐업 — 점포가 한 달에 그만큼 닫히는 일보다
+       상호 변경·재인허가·지자체 일괄 정리 같은 행정 처리일 가능성이 크다. 원자료를 보지 않고 '붕괴'로
+       단정하면 실무자를 오도한다.
     """
     f = flows.copy()
     f["month"] = f["month"].map(_as_period)
@@ -903,6 +912,16 @@ def closure_signal(flows: pd.DataFrame, *, window: int = 3, min_base: int = 10, 
             trends.append("유지")
             pvals.append(min(p_up, p_down, 1.0))
             reasons.append(f"{head} — 통계적으로 다르지 않음.")
+    # 일괄 처리 의심 — 창 안 어느 한 달의 폐업이 직전 달 말 영업 점포의 30%·20곳 이상
+    prev_active = active.shift(1, axis=1)
+    bulk_mask = (close[cur] >= BULK_MIN) & (close[cur] >= BULK_SHARE * prev_active[cur].where(prev_active[cur] > 0))
+    for i, bid in enumerate(res.index):
+        if bid in bulk_mask.index and bool(bulk_mask.loc[bid].any()):
+            m = max(cur, key=lambda mm, b=bid: close.loc[b, mm])
+            trends[i] = CHECK
+            reasons[i] = (f"{m} 한 달에 {int(close.loc[bid, m])}곳이 한꺼번에 폐업 처리됨(직전 달 영업 "
+                          f"{int(prev_active.loc[bid, m])}곳) — 상호 변경·재인허가·일괄 정리일 수 있어 "
+                          "원자료 확인 필요.")
     res["trend"], res["p_value"], res["reason"] = trends, pvals, reasons
     res["as_of_month"] = end
     names = f.drop_duplicates("brand_id").set_index("brand_id")["brand_name"] if "brand_name" in f else None

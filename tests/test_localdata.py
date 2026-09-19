@@ -524,3 +524,24 @@ def test_download_reports_waf_block_and_rate_limit(monkeypatch, tmp_path):
         ld.download_csv("bakeries", tmp_path)
     with pytest.raises(ValueError):
         ld.download_csv("hospitals", tmp_path)
+
+
+def test_bulk_one_month_closures_are_flagged_for_review_not_called_deterioration():
+    """한 달에 영업 점포의 30%·20곳 이상이 한꺼번에 폐업 처리되면 '악화'가 아니라 '확인 필요'.
+
+    실측: 영업 186곳 브랜드가 한 달에 132곳 폐업 — 상호 변경·재인허가·일괄 정리일 가능성이 크다.
+    """
+    import pandas as pd
+
+    from src import localdata as L
+    months = pd.period_range("2024-09", "2026-08", freq="M")
+    rows = []
+    active = 150
+    for m in months:
+        close = 120 if str(m) == "2026-06" else 1
+        active = active - close + 1
+        rows.append({"brand_id": "B", "brand_name": "가상", "month": m, "n_open": 1, "n_close": close,
+                     "n_transfer": 0, "n_active_end": active})
+    sig = L.closure_signal(pd.DataFrame(rows)).set_index("brand_id")
+    assert sig.loc["B", "trend"] == L.CHECK
+    assert "한꺼번에" in sig.loc["B", "reason"] and "2026-06" in sig.loc["B", "reason"]
