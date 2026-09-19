@@ -650,11 +650,15 @@ def to_excel(res: dict, prep: Prepared, meta: dict) -> bytes:
     return buf.getvalue()
 
 
-def template_bytes() -> bytes:
-    """업로드 양식 — 필수 열(브랜드·연체 여부)과 권장 열(취급일·내부등급·금액)."""
+def template_bytes(names: list[str] | None = None) -> bytes:
+    """업로드 양식 — 필수 열(브랜드·연체 여부)과 권장 열(취급일·내부등급·금액).
+
+    names 를 주면 예시 브랜드를 그 이름으로 쓴다 — 공개 배포는 가명(src/public.py).
+    """
+    ex = [*(names or []), "메가커피", "교촌치킨", "빽다방"][:3]
     sample = pd.DataFrame({
         "대출번호": ["L-0001", "L-0002", "L-0003"],
-        "브랜드명": ["메가커피", "교촌치킨", "빽다방"],
+        "브랜드명": ex,
         "취급일": ["2023-03-15", "2023-07-02", "2024-01-20"],
         "내부등급": [4, 7, 5],
         "대출금액(백만원)": [80, 120, 60],

@@ -758,9 +758,9 @@ def setup(page_title: str = "FranSCORE", page_icon: str = "◆") -> None:
 # 컴포넌트
 # ---------------------------------------------------------------------------
 
-def sidebar_brand(title: str, subtitle: str) -> None:
+def sidebar_brand(title: str, subtitle: str, mark: str = "KB") -> None:
     st.sidebar.markdown(
-        f"<div class='kb-brand'><div class='mark'>KB</div>"
+        f"<div class='kb-brand'><div class='mark'>{mark}</div>"
         f"<div class='txt'><div class='t1'>{title}</div>"
         f"<div class='t2'>{subtitle}</div></div></div>",
         unsafe_allow_html=True)

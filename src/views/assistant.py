@@ -17,11 +17,21 @@ EXAMPLES = [
 ]
 
 
+def _examples() -> list[str]:
+    """공개 배포는 실명 대신 가명으로 묻는 예시(src/public.py)."""
+    if not C.is_public():
+        return EXAMPLES
+    from src import public
+    scores, _ = C.load_scores()
+    return public.chat_examples(scores) if scores is not None else EXAMPLES[3:]
+
+
 def render() -> None:
     theme.page_header(
         "AI 상담",
-        "프랜차이즈에 대해 자유롭게 물어보십시오. 공정거래위원회 공시·금융감독원 "
-        "감사보고서·뉴스에서 근거를 찾아 답합니다.",
+        "프랜차이즈에 대해 자유롭게 물어보십시오. 공정거래위원회 공시·금융감독원 감사보고서"
+        + ("에서 근거를 찾아 답합니다. 공개 데모는 브랜드를 가명으로 표시하고 기사 원문은 쓰지 않습니다."
+           if C.is_public() else "·뉴스에서 근거를 찾아 답합니다."),
         eyebrow="상담")
 
     if _HISTORY not in st.session_state:
@@ -31,7 +41,7 @@ def render() -> None:
     if not history:
         st.markdown("##### 이렇게 물어보실 수 있습니다")
         cols = st.columns(2)
-        for i, ex in enumerate(EXAMPLES):
+        for i, ex in enumerate(_examples()):
             if cols[i % 2].button(ex, key=f"ex_{i}", width="stretch"):
                 _enqueue(ex)
                 st.rerun()

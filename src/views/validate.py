@@ -77,7 +77,12 @@ def render() -> None:
         st.markdown(f"<div style='font-size:{theme.FS_SM};color:{theme.TEXT_SUB};margin:6px 0 8px'>"
                     "은행 자료가 없으면 <b>가상 자료</b>로 화면을 먼저 보십시오. 결과는 시연용이며 "
                     "성능 근거가 아닙니다.</div>", unsafe_allow_html=True)
-        st.download_button("업로드 양식 내려받기 (.xlsx)", D.template_bytes(),
+        names = None
+        if C.is_public():                       # 공개 배포는 실명 예시를 쓰지 않는다 (src/public.py)
+            from src import public
+            scores, _ = C.load_scores()
+            names = public.example_names(scores, 3) if scores is not None else None
+        st.download_button("업로드 양식 내려받기 (.xlsx)", D.template_bytes(names),
                            file_name="FranSCORE_등급검증_양식.xlsx", width="stretch",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            on_click="ignore")

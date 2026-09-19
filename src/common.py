@@ -182,6 +182,12 @@ def load_config(path: str | Path | None = None) -> dict:
         p.mkdir(parents=True, exist_ok=True)
         cfg["paths"][key] = p
     if path is None:
+        # 공개 배포: 화면·문서·상담이 읽는 산출물을 가명 사본으로 바꿔 끼운다 (src/public.py).
+        # 모형 사용 명세 §3 — 실명 브랜드 등급의 대외 공표 금지. 로컬·사내 실행은 실명 그대로다.
+        from src import public
+        if public.is_public():
+            cfg["paths"]["outputs"], cfg["paths"]["processed"] = public.data_dirs(
+                cfg["paths"]["outputs"], cfg["paths"]["processed"])
         _CFG_CACHE = cfg
     return cfg
 

@@ -79,17 +79,14 @@ DISCLAIMER = ("본 서비스의 지표는 2선 리스크 관리 참고용이며 
 # 공개 배포(누구나 접속)에서만 덧붙이는 고지. 모형 사용 명세(MODEL_USE_SPEC §3)는 실명 브랜드
 # 등급의 대외 공표를 금지한다 — 공개 데모는 방법론 시연이지 브랜드 평가의 공표가 아니라는 점을
 # 화면에서 분명히 한다.
-PUBLIC_NOTE = ("공개 데모 — 공개 공시 데이터로 방법론을 시연하는 연구용 화면입니다. "
-               "특정 브랜드의 신용도·사업성에 대한 평가나 권유가 아니며, 등급을 인용·배포하지 마십시오.")
+PUBLIC_NOTE = ("공개 데모 — 모형 사용 명세 §3(실명 브랜드 등급의 대외 공표 금지)에 따라 브랜드를 "
+               "가명(예: 치킨 017)으로 표시합니다. 수치는 실제 공시 그대로입니다. KB국민은행의 공식 "
+               "서비스가 아닌 개인 연구 프로젝트이며, 등급을 인용·배포하지 마십시오.")
 
 
 def _is_public_demo() -> bool:
-    flag = os.getenv("FRANSCORE_PUBLIC_DEMO", "").strip().lower()
-    if flag in ("1", "true", "yes"):
-        return True
-    if flag in ("0", "false", "no"):
-        return False
-    return str(_ROOT).startswith("/mount/src")      # Streamlit Community Cloud
+    from src.public import is_public
+    return is_public()
 
 
 _NAV = "nav_view"
@@ -106,7 +103,8 @@ def _year_text(year) -> str:
 
 
 def _sidebar() -> str:
-    theme.sidebar_brand("FranSCORE", "프랜차이즈 여신 리스크")
+    # 공개 배포에서는 은행 로고처럼 읽히는 표식을 쓰지 않는다 — 공식 서비스로 오인되지 않게
+    theme.sidebar_brand("FranSCORE", "프랜차이즈 여신 리스크", mark="FS" if _is_public_demo() else "KB")
     theme.sidebar_label("메뉴")
 
     # ⚠️ 라디오가 아니라 버튼을 쓴다. Streamlit 라디오는 **이미 선택된 항목을 다시

@@ -974,7 +974,17 @@ def template_bytes(scores: pd.DataFrame | None = None, cfg: dict | None = None) 
         from src.common import load_config
         cfg = load_config()
     rows = []
-    for name, amt, coll, nb, lgd, why, rule in _TEMPLATE_ROWS:
+    from src import public
+    if public.is_public() and scores is not None:
+        # 공개 배포는 실명 예시를 쓰지 않는다(모형 사용 명세 §3 · src/public.py) — 가명 브랜드에
+        # 같은 금액·담보 구성을 입힌다. 통칭·동명·오타 예시는 실명에서만 성립해 뺀다.
+        base = [r for r in _TEMPLATE_ROWS if r[6] == "정확 일치"]
+        for name, (_, amt, coll, nb, lgd, why, _rule) in zip(public.example_names(scores, len(base)), base,
+                                                              strict=False):
+            rows.append({"브랜드명": name, "여신잔액(억원)": amt, "담보유형": coll, "차주 수": nb,
+                         "LGD(%, 선택)": lgd,
+                         "비고": "예시(가상 금액)" + (f" · {why}" if why and "LGD" in why else "")})
+    for name, amt, coll, nb, lgd, why, rule in (() if rows else _TEMPLATE_ROWS):
         if scores is not None:
             got = _match_one(None, name, set(scores["brand_id"].astype(str)), scores, None)
             if got["match_rule"] != rule:

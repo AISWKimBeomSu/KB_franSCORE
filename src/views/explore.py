@@ -71,6 +71,13 @@ def _frame(df: pd.DataFrame) -> pd.DataFrame:
         d = diag[["brand_id", "headline_detail", "n_risk"]].copy()
         d["brand_id"] = d["brand_id"].astype(str)
         out = out.merge(d, on="brand_id", how="left")
+    sig = C.load_localdata_signal()                  # 월별 인허가 폐점 신호 (없으면 열을 비운다)
+    if sig is not None and not sig.empty:
+        s2 = sig[["brand_id", "trend"]].rename(columns={"trend": "_ld_trend"})
+        s2["brand_id"] = s2["brand_id"].astype(str)
+        out = out.merge(s2.drop_duplicates("brand_id"), on="brand_id", how="left")
+    else:
+        out["_ld_trend"] = None
     return out
 
 
@@ -84,9 +91,11 @@ def _explore(base: pd.DataFrame) -> None:
     pick_state = c3.multiselect("브랜드 상태", states, format_func=lambda s: C.STATE_LABEL.get(s, s),
                                 placeholder="전체")
     min_n = c4.number_input("최소 가맹점 수", min_value=0, value=0, step=10)
-    d1, d2 = st.columns([2.2, 1])
-    q = d1.text_input("브랜드명 포함", placeholder="예: 치킨, 커피, 메가")
+    d1, d2, d3 = st.columns([2.2, 1, 1.2])
+    q = d1.text_input("브랜드명 포함", placeholder="예: 치킨, 커피" + ("" if C.is_public() else ", 메가"))
     only_crit = d2.checkbox("중대 신호만", value=False)
+    only_ld = d3.checkbox("월별 폐점 악화만", value=False,
+                          help="지자체 인허가로 본 최근 3개월 폐업이 전년 같은 때보다 유의하게 많은 브랜드")
 
     v = base
     if pick_ind:
@@ -103,6 +112,8 @@ def _explore(base: pd.DataFrame) -> None:
         v = v[v["brand_name"].astype(str).map(normalize).str.contains(key, regex=False, na=False)]
     if only_crit:
         v = v[v["중대 신호"].astype(str).str.len() > 0]
+    if only_ld:
+        v = v[v["_ld_trend"].astype(str) == "악화"]
     v = v.sort_values("_risk", ascending=False)
 
     k1, k2, k3, k4 = st.columns(4)
@@ -149,6 +160,7 @@ def _table(v: pd.DataFrame) -> pd.DataFrame:
         "전년 대비 가맹점(%)": num("_growth").round(1),
         "계약종료율(%)": num("_end_rate").round(1),
         "중대 신호": v["중대 신호"],
+        "월별 폐점 신호": v.get("_ld_trend", pd.Series(None, index=v.index)).fillna("-"),
         "대표 소견": v.get("headline_detail", pd.Series("", index=v.index)).fillna(""),
     }).reset_index(drop=True)
 

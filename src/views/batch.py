@@ -24,6 +24,21 @@ def _biz_status(values: tuple) -> pd.DataFrame:
     return nts.lookup_status(list(values))
 
 
+def _template() -> bytes:
+    """예시 양식 — 공개 배포는 가명 예시(실명 등급을 공표하지 않는다 · src/public.py)."""
+    if not C.is_public():
+        return batch.template_bytes()
+    from src import public
+    scores, _ = C.load_scores()
+    rows = [(n, amt, "") for n, amt in zip(public.example_names(scores, 5), (150, 80, 120, 200, 60),
+                                           strict=False)]
+    panel = C.load_panel(full=True)
+    other = public.unscored_example(panel) if panel is not None else None
+    if other:
+        rows.append((other, 180, "공시에는 있으나 외식 업종이 아니어서 평가 대상이 아닌 예"))
+    return batch.template_bytes(rows)
+
+
 @st.cache_resource(show_spinner=False)
 def _context(m_scores: float, m_diag: float) -> batch.Context:
     """산출물 묶음은 프로세스당 한 번만 읽는다 (산출물이 바뀌면 키가 바뀐다)."""
@@ -46,7 +61,7 @@ def render() -> None:
         st.markdown(f"<div style='font-size:{theme.FS_SM};color:{theme.TEXT_SUB};margin:6px 0 8px'>"
                     "양식이 없으면 예시 파일로 시작하십시오. 통칭·동명 브랜드·평가 대상 아님이 "
                     "어떻게 처리되는지 함께 보입니다.</div>", unsafe_allow_html=True)
-        st.download_button("예시 양식 내려받기 (.xlsx)", batch.template_bytes(),
+        st.download_button("예시 양식 내려받기 (.xlsx)", _template(),
                            file_name="FranSCORE_일괄조회_양식.xlsx", width="stretch",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            on_click="ignore")
@@ -68,7 +83,7 @@ def render() -> None:
         df = batch.from_text(text)
     elif use_sample:
         import io
-        df = pd.read_excel(io.BytesIO(batch.template_bytes()), dtype=str)
+        df = pd.read_excel(io.BytesIO(_template()), dtype=str)
 
     if df is not None:
         if df.empty:

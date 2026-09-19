@@ -88,7 +88,8 @@ def _search_box(df: pd.DataFrame) -> None:
     """자동완성 검색. 고르면 곧바로 상세로 들어간다."""
     q = st.selectbox(
         "브랜드 검색", options=_search_options(df), index=None,
-        placeholder="브랜드 이름을 입력하세요 — 한 글자만 쳐도 후보가 나옵니다",
+        placeholder=("가명(예: 치킨 017)이나 업종(커피·치킨)으로 찾으세요 — 공개 데모는 브랜드를 가명으로 표시합니다"
+                     if C.is_public() else "브랜드 이름을 입력하세요 — 한 글자만 쳐도 후보가 나옵니다"),
         accept_new_options=True, label_visibility="collapsed", key="fs_query")
     if not q or not str(q).strip():
         return
@@ -141,6 +142,11 @@ def _clean_option(q: str) -> str:
 
 def _not_found(q: str, near: list[str]) -> None:
     st.warning(f"'{q}' 로 평가된 브랜드를 찾지 못했습니다.")
+    if C.is_public():
+        st.info("**공개 데모는 브랜드를 가명으로 표시합니다** — 모형 사용 명세 §3(실명 브랜드 등급의 대외 "
+                "공표 금지)을 지키기 위해서입니다. 실명으로는 찾을 수 없으니 가명(예: 치킨 017)이나 "
+                "업종명(커피·치킨)으로 찾으십시오. 실명 조회는 로컬 실행에서 됩니다.")
+        return
     if near:
         st.caption("혹시 이것을 찾으셨나요? " + " · ".join(near))
     # 평가하지 않은 이유는 브랜드마다 다르다 — 한 문장으로 뭉뚱그리면 틀린다.
@@ -667,6 +673,41 @@ def _tab_trend(brand_id: str) -> None:
                        key=f"t4_{brand_id}")
         else:
             st.caption("지역별 공시가 없습니다.")
+    _monthly_flows(brand_id)
+
+
+def _monthly_flows(brand_id: str) -> None:
+    """월별 개점·폐점 — 지자체 인허가(매일 갱신)로 본 공시 이후의 흐름.
+
+    공시는 연 1회·1~2년 늦다. 인허가 흐름은 공시와 같은 것을 재면서(순위상관은
+    tools/validate_localdata.py 산출물에서 읽는다) 최근 달까지 보여 준다. 위 연간 막대와 같은 색 규칙.
+    """
+    flows = C.load_localdata_flows()
+    if flows is None or flows.empty:
+        return
+    f = flows[flows["brand_id"].astype(str) == str(brand_id)].sort_values("month")
+    if f.empty:
+        return
+    st.markdown("**월별 개점 · 폐점** — 지자체 인허가, 최근 24개월")
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=f["month"], y=f["n_open"], name="개점", marker_color=theme.SAFE_FILL,
+                         customdata=f["n_active_end"],
+                         hovertemplate="%{x}<br>개점 <b>%{y:,.0f}</b>곳 · 월말 영업 %{customdata:,.0f}곳"
+                                       "<extra></extra>"))
+    fig.add_trace(go.Bar(x=f["month"], y=-f["n_close"], name="폐점", marker_color=theme.DANGER_FILL,
+                         customdata=f[["n_close", "n_active_end"]].to_numpy(),
+                         hovertemplate="%{x}<br>폐점 <b>%{customdata[0]:,.0f}</b>곳 · 월말 영업 "
+                                       "%{customdata[1]:,.0f}곳<extra></extra>"))
+    fig.update_layout(barmode="relative", height=230, margin={"l": 4, "r": 4, "t": 8, "b": 4},
+                      legend={"orientation": "h", "y": 1.12, "x": 0})
+    theme.plot(fig, key=f"t5_{brand_id}")
+    last = f.iloc[-1]
+    v = C.localdata_validity()
+    agree = (f" 공시와의 일치: {v['year']}년 폐점률 순위상관 {v['rho']:.2f}, 매칭 완전성 중앙값 "
+             f"{v['coverage'] * 100:.0f}%." if v else "")
+    st.caption(f"{last['month']} 말 영업 점포 {int(last['n_active_end']):,}곳. 같은 주소에서 90일 안에 다시 연 "
+               "경우는 폐점이 아니라 명의 이전으로 셉니다. 사업장명으로 브랜드를 이은 값이라 공시 가맹점 수와 "
+               f"조금 다를 수 있습니다.{agree}")
 
 
 def _tab_hq(brand_id: str) -> None:
@@ -720,7 +761,7 @@ def _tab_hq(brand_id: str) -> None:
                           margin={"l": 4, "r": 4, "t": 24, "b": 4})
         theme.plot(fig, key=f"hq_{brand_id}")
 
-    rc = fin["rcept_no"].dropna()
+    rc = fin["rcept_no"].dropna() if "rcept_no" in fin.columns else pd.Series(dtype=object)
     if len(rc):
         st.markdown(f"[감사보고서 원문 보기 (DART)]"
                     f"(https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rc.iloc[-1]})")

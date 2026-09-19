@@ -56,6 +56,7 @@ class Context:
     summary: pd.DataFrame | None
     all_brands: pd.DataFrame | None       # 공시 전체 브랜드명 (평가 대상 아님 판별용)
     outputs: Path
+    signal: pd.DataFrame | None = None    # 월별 인허가 폐점 신호 (src/localdata.py)
 
     @classmethod
     def from_files(cls, outputs: Path, processed: Path) -> Context:
@@ -68,7 +69,9 @@ class Context:
             summary=pd.read_csv(sp, encoding="utf-8-sig") if sp.exists() else None,
             all_brands=(pd.read_parquet(pf, columns=["brand_name"]).drop_duplicates()
                         if pf.exists() else None),
-            outputs=outputs)
+            outputs=outputs,
+            signal=(pd.read_csv(outputs / "localdata_signal.csv", encoding="utf-8-sig")
+                    if (outputs / "localdata_signal.csv").exists() else None))
 
 
 def detect_brand_column(df: pd.DataFrame) -> str | None:
@@ -184,6 +187,8 @@ def screen(df: pd.DataFrame, brand_col: str, ctx: Context,
                 if fin is not None and not fin.empty else {})
     summ = (ctx.summary.assign(brand_id=ctx.summary["brand_id"].astype(str)).set_index("brand_id")
             if ctx.summary is not None and not ctx.summary.empty else None)
+    sig = (ctx.signal.assign(brand_id=ctx.signal["brand_id"].astype(str)).drop_duplicates("brand_id")
+           .set_index("brand_id") if ctx.signal is not None and not ctx.signal.empty else None)
 
     rows = []
     cache: dict[str, dict] = {}
@@ -213,6 +218,8 @@ def screen(df: pd.DataFrame, brand_col: str, ctx: Context,
                 "브랜드 리스크(%)": grading.display_pct(r.get("deterioration_1y"), cuts),
                 "1년 내 악화 위험(%)": round(grading.priority_risk(r, rates) * 100, 1),
                 "중대 신호": " · ".join(str(x.get("title") or x.get("code")) for x in crit),
+                "월별 폐점 신호": (f"{sig.loc[bid, 'trend']} ({sig.loc[bid, 'as_of_month']})"
+                                  if sig is not None and bid in sig.index else ""),
                 "대표 소견": head if isinstance(head, str) else "",
                 "확인 사항": "\n".join(f"☐ {c['check']}" for c in checks[:3]),
                 "권고 확인 서류": " · ".join(docs[:3]),
@@ -222,7 +229,12 @@ def screen(df: pd.DataFrame, brand_col: str, ctx: Context,
     # 입력 열의 빈칸은 빈칸으로 — 엑셀의 빈 셀이 화면·반출에 'None' 글자로 찍히지 않게
     base = df.reset_index(drop=True)
     base = base.astype(object).where(base.notna(), "")
-    res = pd.concat([base, pd.DataFrame(rows)], axis=1)
+    diag = pd.DataFrame(rows)
+    # 매칭되지 않은 행의 진단 칸은 빈칸 — 화면·엑셀에 'None' 글자가 찍히지 않게 (가맹점 수는 숫자 열로 둔다)
+    for c in diag.columns:
+        if c != "가맹점 수" and diag[c].dtype == object:
+            diag[c] = diag[c].where(diag[c].notna(), "")
+    res = pd.concat([base, diag], axis=1)
     if amount_col and amount_col in res.columns:
         res[amount_col] = pd.to_numeric(res[amount_col], errors="coerce")
     return res
@@ -315,14 +327,24 @@ def to_excel(res: pd.DataFrame, summary: dict, meta: dict) -> bytes:
     return buf.getvalue()
 
 
-def template_bytes() -> bytes:
-    """업로드 양식 — 실제로 결과가 갈리는 예시를 담는다(정확·통칭·동명·평가 대상 아님)."""
+_TEMPLATE_ROWS = (
+    ("메가커피", 150, "통칭으로 입력해도 찾습니다"), ("인생냉면", 80, ""), ("달리는커피", 120, ""),
+    ("빽다방", 200, ""), ("국수나무", 60, "같은 이름의 브랜드가 둘입니다"),
+    ("크린토피아", 180, "공시에는 있으나 외식 업종이 아니어서 평가 대상이 아닌 예"),
+)
+
+
+def template_bytes(examples: list[tuple[str, int, str]] | None = None) -> bytes:
+    """업로드 양식 — 실제로 결과가 갈리는 예시를 담는다(정확·통칭·동명·평가 대상 아님).
+
+    examples 를 주면 그 행으로 만든다 — 공개 배포는 실명 대신 가명 예시를 쓴다(src/public.py).
+    """
+    rows = list(examples or _TEMPLATE_ROWS)
     sample = pd.DataFrame({
-        "신청번호": ["2026-0001", "2026-0002", "2026-0003", "2026-0004", "2026-0005", "2026-0006"],
-        "브랜드명": ["메가커피", "인생냉면", "달리는커피", "빽다방", "국수나무", "크린토피아"],
-        "신청금액(백만원)": [150, 80, 120, 200, 60, 180],
-        "비고": ["통칭으로 입력해도 찾습니다", "", "", "", "같은 이름의 브랜드가 둘입니다",
-                 "공시에는 있으나 외식 업종이 아니어서 평가 대상이 아닌 예"],
+        "신청번호": [f"2026-{i:04d}" for i in range(1, len(rows) + 1)],
+        "브랜드명": [r[0] for r in rows],
+        "신청금액(백만원)": [r[1] for r in rows],
+        "비고": [r[2] for r in rows],
     })
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:

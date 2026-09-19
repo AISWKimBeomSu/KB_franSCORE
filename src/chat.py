@@ -289,6 +289,14 @@ def brand_facts(cfg: dict, brand_name: str) -> dict:
         "전체중_상위": f"{(1 - float(r['deterioration_rank_pct'])) * 100:.1f}%"
         if pd.notna(r.get("deterioration_rank_pct")) else None,
     })
+    lp = out_dir / "localdata_signal.csv"            # 월별 인허가 폐점 신호 — 공시 이후의 흐름
+    if lp.exists():
+        ls = pd.read_csv(lp, encoding="utf-8-sig")
+        ls = ls[ls["brand_id"].astype(str) == bid]
+        if not ls.empty:
+            x = ls.iloc[0]
+            out["월별폐점신호"] = (f"{x['trend']} — {x['reason']} "
+                               f"({x['as_of_month']} 기준, 지자체 인허가 {x.get('scope', '지역 표본')})")
     basis = str(r.get("eligibility_basis") or "")
     if basis and basis not in ("정규", "nan"):       # 공시 공백 보정 브랜드 — 한계를 함께 넘긴다
         out["평가경로"] = f"공시 공백 보정({basis}) — 3년 추세 지표 없이 계산, 과거 검증 표본 밖"
@@ -544,6 +552,22 @@ CAPABILITY_TEXT = (
     "브랜드 이름은 공시 등록명이 아니어도 됩니다(예: 메가커피 → 메가엠지씨커피).")
 
 
+def capability_text(cfg: dict | None = None) -> str:
+    """상담 안내문 — 공개 배포는 실명 예시 대신 가명 예시로 (src/public.py)."""
+    from src import public
+    if not public.is_public():
+        return CAPABILITY_TEXT
+    from src.common import load_config
+    sp = Path((cfg or load_config())["paths"]["outputs"]) / "scores_latest.csv"
+    if not sp.exists():
+        return CAPABILITY_TEXT.split("\n\n브랜드 이름은")[0]
+    ex = public.chat_examples(pd.read_csv(sp, encoding="utf-8-sig"))
+    return ("FranSCORE 상담은 **공정거래위원회 가맹사업 공시 · 금융감독원 감사보고서**에 있는 사실로만 "
+            "답합니다. 공개 데모는 브랜드를 가명으로 표시합니다(모형 사용 명세 §3). 이렇게 물어보십시오.\n\n"
+            f"- 브랜드 한 곳 — \"{ex[0]}\"\n- 추이 — \"{ex[1]}\"\n- 비교 — \"{ex[2]}\"\n"
+            f"- 업종 — \"{ex[3]}\"")
+
+
 def _md_table(rows: list[dict], cols: list[str], labels: dict[str, str] | None = None) -> list[str]:
     """dict 목록 → 마크다운 표 줄들. 값이 없으면 '-'. labels 로 머리글을 사람이 읽는 이름으로."""
     def cell(v, col):
@@ -570,11 +594,11 @@ def _fallback(facts: list[dict], evidence: list[dict], question: str,
     """
     del question
     if intent in ("greeting", "capability", "off_domain"):
-        return CAPABILITY_TEXT
+        return capability_text()
     facts = [f for f in (facts or []) if f.get("위험등급")]
     if not facts and not evidence and not industry:
         return ("질문에서 브랜드나 업종을 찾지 못했습니다. **FRANSCORE 화면 검색창**에서 "
-                "브랜드 이름을 확인하시거나, 아래처럼 물어보십시오.\n\n" + CAPABILITY_TEXT)
+                "브랜드 이름을 확인하시거나, 아래처럼 물어보십시오.\n\n" + capability_text())
     parts: list[str] = []
 
     # 업종 표는 업종을 물었을 때만 — "메가커피와 컴포즈커피" 비교 질문에서 '커피'가 업종어로
@@ -609,6 +633,8 @@ def _fallback(facts: list[dict], evidence: list[dict], question: str,
                      + (f" · 가맹본부 {f['가맹본부']}" if f.get("가맹본부") else ""))
         if f.get("평가경로"):
             parts.append(f"- 평가 경로: {f['평가경로']}")
+        if f.get("월별폐점신호"):
+            parts.append(f"- 월별 폐점 신호: {f['월별폐점신호']}")
         risks = [s for s in (f.get("진단소견") or f.get("관련_소견") or [])
                  if s.get("구분") == "risk"][:5]
         if risks:
@@ -745,7 +771,7 @@ def _no_llm_notice(reason: str, facts: list[dict], evidence: list[dict],
     사용자가 키 설정을 의심하며 엉뚱한 곳을 고치게 된다.
     """
     if intent in ("greeting", "capability", "off_domain"):
-        return CAPABILITY_TEXT              # 인사에 '모델 없음' 경고부터 내밀 이유가 없다
+        return capability_text()            # 인사에 '모델 없음' 경고부터 내밀 이유가 없다
     head = {
         "no_key": ("답변 생성 모델(Gemini)이 연결되지 않은 데모라, 질문에 해당하는 "
                    "**공시·재무·소견을 정리**해 보여드립니다."),

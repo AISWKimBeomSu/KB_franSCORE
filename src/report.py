@@ -253,6 +253,9 @@ def _artifact_dirs(base: Path) -> tuple[Path, Path, dict]:
     paths = cfg.get("paths") or {}
     out = base / str(paths.get("outputs") or "outputs")
     proc = base / str(paths.get("processed") or "data/processed")
+    from src import public
+    if public.is_public():                      # 공개 배포는 가명 사본에서 읽는다 (src/public.py)
+        out, proc = public.data_dirs(out, proc)
     return out, proc, cfg
 
 
@@ -519,7 +522,17 @@ def load_brand_context(brand_id: str, root: Path | None = None) -> dict:
         "trend": _trend(hist, year),
         "hq": _hq(proc_dir, company),
         "demand": _demand(out_dir, bid),
+        "localdata": _localdata(out_dir, bid),
     }
+
+
+def _localdata(out_dir: Path, brand_id: str) -> dict | None:
+    """월별 인허가 폐점 신호(src/localdata.py) — 공시보다 늦지 않은 개·폐점 흐름."""
+    sig = _load(out_dir / "localdata_signal.csv", "csv")
+    if not isinstance(sig, pd.DataFrame) or sig.empty:
+        return None
+    row = sig[sig["brand_id"].astype(str) == str(brand_id)]
+    return row.iloc[0].to_dict() if not row.empty else None
 
 
 # ---------------------------------------------------------------------------
@@ -806,6 +819,12 @@ def _overview(ctx: dict, name: str) -> str:
         ("가맹점 수", _e(stores), "진출 시·도", _e(regions)),
         ("가맹점 평균매출", sales_txt, "검색 수요", dem),
     ]
+    ld = ctx.get("localdata")
+    if ld:
+        rows.append(("월별 폐점 신호",
+                     f"<b>{_e(ld.get('trend'))}</b> — 최근 3개월 폐업 {_int(ld.get('close_3m')) or 0:,}건 · "
+                     f"개업 {_int(ld.get('open_3m')) or 0:,}건",
+                     "신호 기준", f"{_e(ld.get('as_of_month'))} · 지자체 인허가({_e(ld.get('scope') or '지역 표본')})"))
     body = "".join(f"<tr><th>{a}</th><td>{b_}</td><th>{c}</th><td>{d_}</td></tr>" for a, b_, c, d_ in rows)
     return f"<section class='sec'>{_h2(1, '브랜드 개요')}<table class='kv overview'>{body}</table></section>"
 

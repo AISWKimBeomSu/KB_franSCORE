@@ -158,6 +158,27 @@ def load_localdata_signal() -> pd.DataFrame | None:
     return _csv(str(p), _mtime(p)) if p.exists() else None
 
 
+def load_localdata_flows() -> pd.DataFrame | None:
+    """브랜드×월 인허가 개점·폐점 흐름(src/localdata.py CLI --flows-out)."""
+    p = out_dir() / "localdata_flows.csv"
+    return _csv(str(p), _mtime(p)) if p.exists() else None
+
+
+def localdata_validity() -> dict | None:
+    """인허가 신호와 공시의 일치도(tools/validate_localdata.py) — 가장 최근 연도 하나."""
+    p = out_dir() / "localdata_validation.json"
+    if not p.exists():
+        return None
+    try:
+        years = (_json(str(p), _mtime(p)) or {}).get("years") or {}
+        y = max(years, key=int)
+        return {"year": int(y), "rho": float(years[y]["close_vs_churn"]["rho"]),
+                "rho_growth": float(years[y]["growth_vs_growth"]["rho"]),
+                "coverage": float(years[y]["coverage_median"])}
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
 _TREND_KIND = {"악화": "High", "개선": "Low", "유지": "Neutral", "판단보류": "Neutral"}
 
 
@@ -282,8 +303,18 @@ def _logo_data_uri(brand_name: str, m: float) -> str:
         return ""
 
 
+def is_public() -> bool:
+    from src.public import is_public as _p
+    return _p()
+
+
 def logo_url(brand_name: str) -> str:
-    """브랜드 로고를 화면에 바로 넣을 수 있는 형태로. 없으면 빈 문자열."""
+    """브랜드 로고를 화면에 바로 넣을 수 있는 형태로. 없으면 빈 문자열.
+
+    공개 배포에서는 쓰지 않는다 — 로고는 이름보다 먼저 브랜드를 알아보게 한다(src/public.py).
+    """
+    if is_public():
+        return ""
     from src.naver import LOGO_DIR
     d = Path(cfg()["_root"]) / LOGO_DIR
     # 디렉토리 수정시각을 캐시 키에 넣어 수집이 진행되면 화면이 따라오게 한다
