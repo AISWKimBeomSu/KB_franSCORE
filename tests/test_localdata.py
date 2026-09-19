@@ -529,7 +529,7 @@ def test_download_reports_waf_block_and_rate_limit(monkeypatch, tmp_path):
 def test_bulk_one_month_closures_are_flagged_for_review_not_called_deterioration():
     """한 달에 영업 점포의 30%·20곳 이상이 한꺼번에 폐업 처리되면 '악화'가 아니라 '확인 필요'.
 
-    실측: 영업 186곳 브랜드가 한 달에 132곳 폐업 — 상호 변경·재인허가·일괄 정리일 가능성이 크다.
+    실측: 직전 달 영업 184곳 브랜드가 한 달에 132곳 폐업 — 3개월 추세 검정이 다룰 사건이 아니다(원인은 원자료로).
     """
     import pandas as pd
 
