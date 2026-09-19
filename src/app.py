@@ -29,6 +29,8 @@ MENU = {
     # '한눈에 보기'와 '브랜드 조회'는 같은 일의 두 단계여서 하나로 합쳤다 —
     # 목록에서 고르고, 고른 것을 자세히 본다. 화면을 오가며 이름을 다시 칠 이유가 없다.
     "FRANSCORE": ("franscore", "브랜드 리스크 현황과 상세 진단"),
+    # 조건으로 거르고 후보를 나란히 놓는 일 — 신규 협약·신규 취급 검토의 출발점이다.
+    "브랜드 탐색·비교": ("explore", "조건 검색과 후보 비교"),
     # 심사역의 하루는 브랜드 하나가 아니라 신청 목록으로 시작한다 — 목록째 조회한다.
     "일괄 조회": ("batch", "신청 목록 한 번에 진단"),
     "점검 큐": ("queue", "담당자 배정과 확인 결과 기록"),
@@ -39,6 +41,21 @@ MENU = {
 
 DISCLAIMER = ("본 서비스의 지표는 2선 리스크 관리 참고용이며 자동 여신 결정에 "
               "사용되지 않습니다.")
+# 공개 배포(누구나 접속)에서만 덧붙이는 고지. 모형 사용 명세(MODEL_USE_SPEC §3)는 실명 브랜드
+# 등급의 대외 공표를 금지한다 — 공개 데모는 방법론 시연이지 브랜드 평가의 공표가 아니라는 점을
+# 화면에서 분명히 한다.
+PUBLIC_NOTE = ("공개 데모 — 공개 공시 데이터로 방법론을 시연하는 연구용 화면입니다. "
+               "특정 브랜드의 신용도·사업성에 대한 평가나 권유가 아니며, 등급을 인용·배포하지 마십시오.")
+
+
+def _is_public_demo() -> bool:
+    import os
+    flag = os.getenv("FRANSCORE_PUBLIC_DEMO", "").strip().lower()
+    if flag in ("1", "true", "yes"):
+        return True
+    if flag in ("0", "false", "no"):
+        return False
+    return str(_ROOT).startswith("/mount/src")      # Streamlit Community Cloud
 
 
 _NAV = "nav_view"
@@ -82,6 +99,8 @@ def _sidebar() -> str:
     # 명도대비 2.78 로 사실상 안 읽히게 두었는데, 안 읽히는 고지는 고지가 아니다.
     st.sidebar.markdown(f"<div class='kb-navnote'>{DISCLAIMER}</div>",
                         unsafe_allow_html=True)
+    if _is_public_demo():
+        st.sidebar.markdown(f"<div class='kb-navnote'>{PUBLIC_NOTE}</div>", unsafe_allow_html=True)
     return view
 
 
@@ -100,9 +119,9 @@ def main() -> None:
             st.session_state["fs_selected"] = None
         st.session_state["_last_view"] = module_name
 
-    from src.views import about, assistant, batch, franscore, portfolio, queue
-    modules = {"franscore": franscore, "batch": batch, "queue": queue, "portfolio": portfolio,
-               "assistant": assistant, "about": about}
+    from src.views import about, assistant, batch, explore, franscore, portfolio, queue
+    modules = {"franscore": franscore, "explore": explore, "batch": batch, "queue": queue,
+               "portfolio": portfolio, "assistant": assistant, "about": about}
     modules[module_name].render()
 
 
