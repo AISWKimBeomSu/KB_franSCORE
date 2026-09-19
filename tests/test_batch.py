@@ -116,7 +116,9 @@ def test_without_key_rows_say_how_to_enable_and_no_network(ctx, monkeypatch):
     monkeypatch.delenv(nts.KEY_ENV, raising=False)
     monkeypatch.setattr(nts, "load_secrets", lambda: [])
     monkeypatch.setattr(requests, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("network")))
-    res = batch.screen(pd.DataFrame({"브랜드명": ["메가커피"], "사업자번호": ["124-81-00998"]}), "브랜드명", ctx)
+    res = batch.screen(pd.DataFrame({"브랜드명": ["메가커피", "빽다방"], "사업자번호": ["124-81-00998", "12345"]}),
+                       "브랜드명", ctx)
     out, s = batch.attach_business_status(res, "사업자번호")
-    assert out.loc[0, "사업자 상태"] == nts.UNKNOWN and s["no_key"]
-    assert nts.DATASET_ID in out.loc[0, "사업자 확인"]
+    assert out.loc[0, "사업자 상태"] == nts.UNKNOWN and nts.DATASET_ID in out.loc[0, "사업자 확인"]
+    assert "형식 오류" in out.loc[1, "사업자 확인"]
+    assert s["no_key"], "형식 오류 행이 섞여도 키 안내는 나와야 한다"

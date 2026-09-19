@@ -20,3 +20,7 @@ data/raw/ifrmp/content/
 
 # 로고 색인 저장 직전 백업 (repair_logos.py 가 만든다)
 data/raw/naver/logos.json.bak
+
+# 지자체 인허가 전국 파일 (약 930MB, 매일 갱신 원천) — 원본은 공개 URL 에서 다시 받는다.
+# 커밋하는 것은 여기서 만든 브랜드별 신호표(outputs/localdata_*.csv)뿐이다.
+data/raw/localdata/

@@ -130,7 +130,8 @@ def attach_business_status(res: pd.DataFrame, bno_col: str, lookup=None) -> tupl
                "closed": int((status == nts.STATUS_BY_CODE["03"]).sum()),
                "suspended": int((status == nts.STATUS_BY_CODE["02"]).sum()),
                "unknown": int(((status == nts.UNKNOWN) & asked).sum()),
-               "no_key": bool(asked.any() and note[asked].str.contains(nts.KEY_ENV).all())}
+               # 형식이 틀린 번호가 섞여 있어도, 키가 없어 못 물어본 번호가 하나라도 있으면 안내한다
+               "no_key": bool(note[asked].str.contains(nts.KEY_ENV).any())}
     return out, summary
 
 
