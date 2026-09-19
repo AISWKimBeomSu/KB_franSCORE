@@ -1,0 +1,43 @@
+# 푸시·PR 마다 세 가지를 자동으로 확인한다.
+#   1) 린트 (ruff — 규칙·버전 고정)
+#   2) 테스트 (단위 · 화면 정합성 · 개인정보 · 전 화면 스모크, API 키 없이)
+#   3) 문서에 적힌 수치 ↔ 산출물 대조 (tools/check_doc_numbers.py)
+# 셋 중 하나라도 깨지면 README 의 CI 배지가 빨갛게 바뀐다 — "문서와 산출물이 맞는다"는
+# 주장을 사람이 아니라 기계가 매번 증명하게 하는 장치다.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONIOENCODING: utf-8
+      FRANSCORE_QUEUE_STORE: session
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: 린트
+        run: python -m ruff check .
+
+      - name: 테스트
+        run: python -m pytest -q
+
+      - name: 문서 수치 대조
+        run: python tools/check_doc_numbers.py
