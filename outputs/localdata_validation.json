@@ -1,0 +1,47 @@
+{
+  "as_of_month": "2026-08",
+  "n_records": 3015391,
+  "n_matched": 234963,
+  "n_brands_matched": 1460,
+  "min_stores": 30,
+  "years": {
+    "2023": {
+      "close_vs_churn": {
+        "n": 612,
+        "rho": 0.666,
+        "ci_lo": 0.607,
+        "ci_hi": 0.719
+      },
+      "growth_vs_growth": {
+        "n": 602,
+        "rho": 0.854,
+        "ci_lo": 0.822,
+        "ci_hi": 0.881
+      },
+      "coverage_median": 0.949,
+      "coverage_iqr": [
+        0.817,
+        1.042
+      ]
+    },
+    "2024": {
+      "close_vs_churn": {
+        "n": 725,
+        "rho": 0.734,
+        "ci_lo": 0.689,
+        "ci_hi": 0.773
+      },
+      "growth_vs_growth": {
+        "n": 725,
+        "rho": 0.843,
+        "ci_lo": 0.81,
+        "ci_hi": 0.87
+      },
+      "coverage_median": 0.983,
+      "coverage_iqr": [
+        0.872,
+        1.065
+      ]
+    }
+  }
+}
