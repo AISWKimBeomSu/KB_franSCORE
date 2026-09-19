@@ -323,7 +323,7 @@ def _fulltable(work: pd.DataFrame, yr) -> None:
         width="stretch", height=460,
         column_config={
             "브랜드": st.column_config.TextColumn(width="medium"),
-            "가맹점 수": st.column_config.NumberColumn(format="%d"),
+            "가맹점 수": st.column_config.NumberColumn(format="%,.0f"),
             "브랜드 상태": st.column_config.TextColumn(
                 help=f"{C.STATE_LABEL['요주의']}은 올해 공시에 이미 악화 사건이 나타난 브랜드입니다. "
                      "모델 학습 표본 밖이라 브랜드 리스크 확률에는 성능 근거가 없습니다 — "

@@ -68,6 +68,24 @@ def test_evidence_drops_identifiers():
     assert "rcept_no" not in ev and "알파치킨" not in ev and "0.3" in ev
 
 
+def test_public_examples_avoid_the_largest_brands():
+    """가맹점 수 최상위 브랜드는 숫자만으로 실명이 짐작된다 — 공개 모드 예시는 중간 규모에서 고른다."""
+    sizes = [3300, 2600, 2300, 1700, 1400] + list(range(480, 100, -20)) + [60, 40, 20]
+    s = pd.DataFrame({"brand_id": [f"P{i:05d}" for i in range(len(sizes))],
+                      "brand_name": [f"브랜드 {i:03d}" for i in range(len(sizes))],
+                      "industry_mid": [("치킨", "커피", "한식")[i % 3] for i in range(len(sizes))],
+                      "grade": [("FS1", "FS2", "FS3")[i % 3] for i in range(len(sizes))],
+                      "n_stores": sizes})
+    lo, hi = public.SHOWCASE_STORES
+    n = s.set_index("brand_name")["n_stores"]
+    names = public.example_names(s, 3)
+    assert len(names) == 3 and all(lo <= n[x] <= hi for x in names)
+    pair = public.same_industry_pair_rows(s)
+    assert len(pair) == 2 and pair["industry_mid"].nunique() == 1
+    assert pair["n_stores"].between(lo, hi).all()
+    assert set(public.same_industry_pair(s)) == set(pair["brand_name"])
+
+
 def _texts(path: Path) -> str:
     if path.suffix in (".parquet", ".csv"):
         df = pd.read_parquet(path) if path.suffix == ".parquet" else pd.read_csv(path, dtype=str,

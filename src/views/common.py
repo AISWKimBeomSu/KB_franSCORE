@@ -435,6 +435,21 @@ def line_chart(df: pd.DataFrame, x: str, y: str, name: str,
     return fig
 
 
+def year_axis(fig: go.Figure, years) -> go.Figure:
+    """연도 축을 정수 눈금으로 고정한다.
+
+    점이 한두 개뿐이면(신규 브랜드, 공시 공백 보정 브랜드) plotly 가 연속 축으로 보고
+    '2,023.2' 같은 소수 눈금을 찍는다. 실측으로 그 상태였다(보정 브랜드 상세의 공시 추이).
+    """
+    ys = pd.to_numeric(pd.Series(list(years)), errors="coerce").dropna().astype(int)
+    if ys.empty:
+        return fig
+    lo, hi = int(ys.min()), int(ys.max())
+    # 양옆 반 칸 여백 — 없으면 선 그래프의 마지막 해가 테두리에 걸려 눈금이 빠진다
+    fig.update_xaxes(tickformat="d", dtick=1 if hi - lo <= 8 else 2, range=[lo - 0.5, hi + 0.5])
+    return fig
+
+
 def bar_chart(labels, values, colors=None, unit: str = "",
               horizontal: bool = True) -> go.Figure:
     c = colors or theme.YELLOW_DEEP
@@ -1144,6 +1159,7 @@ def risk_gauge(deterioration_1y: float, rank_pct: float | None = None) -> go.Fig
                       {"range": [mid, hi], "color": theme.WARN_SOFT},
                       {"range": [hi, 100], "color": theme.DANGER_SOFT}],
         }))
-    fig.update_layout(height=170, margin={"l": 12, "r": 12, "t": 8, "b": 4})
+    # 좌우 여백이 좁으면 0%·100% 눈금이 잘려 '5 –', '– 1' 처럼 보인다(실측)
+    fig.update_layout(height=170, margin={"l": 46, "r": 46, "t": 8, "b": 4})
     del rank_pct
     return fig

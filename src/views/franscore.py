@@ -638,7 +638,7 @@ def _tab_trend(brand_id: str) -> None:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("**가맹점 수**")
-        theme.plot(C.line_chart(bp, "year", "n_stores", "가맹점", "개"),
+        theme.plot(C.year_axis(C.line_chart(bp, "year", "n_stores", "가맹점", "개"), bp["year"]),
                    key=f"t1_{brand_id}")
     with c2:
         st.markdown("**가맹점 평균매출**")
@@ -646,7 +646,7 @@ def _tab_trend(brand_id: str) -> None:
             d = bp.assign(_s=pd.to_numeric(bp["avg_sales"], errors="coerce") / 1e5)
             fig = C.line_chart(d, "year", "_s", "평균매출", "억원")
             fig.update_yaxes(ticksuffix="억")
-            theme.plot(fig, key=f"t2_{brand_id}")
+            theme.plot(C.year_axis(fig, bp["year"]), key=f"t2_{brand_id}")
         else:
             st.caption("평균매출이 공시에 기재되지 않았습니다.")
 
@@ -665,12 +665,13 @@ def _tab_trend(brand_id: str) -> None:
                                            "<extra></extra>", customdata=out))
         fig.update_layout(barmode="relative", height=210,
                           margin={"l": 4, "r": 4, "t": 8, "b": 4})
-        theme.plot(fig, key=f"t3_{brand_id}")
+        theme.plot(C.year_axis(fig, bp["year"]), key=f"t3_{brand_id}")
     with c4:
         st.markdown("**진출 지역 수**")
         if "n_regions" in bp.columns and bp["n_regions"].notna().any():
-            theme.plot(C.line_chart(bp, "year", "n_regions", "지역", "곳", fill=False),
-                       key=f"t4_{brand_id}")
+            fig = C.line_chart(bp, "year", "n_regions", "지역", "곳", fill=False)
+            fig.update_yaxes(rangemode="tozero")     # 15→17 이 급변처럼 보이지 않게, 눈금도 정수로
+            theme.plot(C.year_axis(fig, bp["year"]), key=f"t4_{brand_id}")
         else:
             st.caption("지역별 공시가 없습니다.")
     _monthly_flows(brand_id)
@@ -760,7 +761,7 @@ def _tab_hq(brand_id: str) -> None:
                           yaxis2={"overlaying": "y", "side": "right",
                                   "showgrid": False, "ticksuffix": "억"},
                           margin={"l": 4, "r": 4, "t": 24, "b": 4})
-        theme.plot(fig, key=f"hq_{brand_id}")
+        theme.plot(C.year_axis(fig, show["결산연도"]), key=f"hq_{brand_id}")
 
     rc = fin["rcept_no"].dropna() if "rcept_no" in fin.columns else pd.Series(dtype=object)
     if len(rc):

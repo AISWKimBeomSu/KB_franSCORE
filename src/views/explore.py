@@ -14,7 +14,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src import grading, theme
+from src import grading, public, theme
 from src.views import common as C
 
 _MAX_COMPARE = 4
@@ -128,7 +128,7 @@ def _explore(base: pd.DataFrame) -> None:
         column_config={
             "상세": st.column_config.LinkColumn("상세", display_text="열기", width="small"),
             "브랜드": st.column_config.TextColumn(width="medium"),
-            "가맹점 수": st.column_config.NumberColumn(format="%d"),
+            "가맹점 수": st.column_config.NumberColumn(format="%,.0f"),
             "브랜드 리스크(%)": st.column_config.NumberColumn(format="%.1f%%"),
             "1년 내 악화 위험(%)": st.column_config.NumberColumn(
                 format="%.1f%%", help="건전 브랜드는 모형 확률, 악화 발생 브랜드는 같은 사건수 과거 브랜드의 "
@@ -174,6 +174,9 @@ def _compare(base: pd.DataFrame) -> None:
     label = {b: f"{n} ({i} · {int(s):,}개)" for b, n, i, s in
              zip(sized["brand_id"], sized["brand_name"], sized["industry_mid"], sized["n_sort"], strict=True)}
     defaults = list(sized["brand_id"].head(2))
+    if C.is_public():          # 최상위 규모는 가맹점 수만으로 실명이 짐작된다 — 중간 규모 같은 업종 한 쌍
+        pair = public.same_industry_pair_rows(base)["brand_id"].astype(str)
+        defaults = [b for b in pair if b in label] or defaults
     picks = st.multiselect(f"비교할 브랜드 (최대 {_MAX_COMPARE}개)", list(label), default=defaults,
                            format_func=lambda b: label.get(b, b), max_selections=_MAX_COMPARE)
     if len(picks) < 2:
@@ -274,7 +277,7 @@ def _trend_fig(panel: pd.DataFrame, picks: list[str], sel: pd.DataFrame, col: st
                       legend={"orientation": "h", "y": -0.18, "x": 0})
     if unit == "%":
         fig.update_yaxes(ticksuffix="%")
-    return fig
+    return C.year_axis(fig, p["year"])
 
 
 def _excel(df: pd.DataFrame, sheet: str) -> bytes:

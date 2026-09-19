@@ -305,9 +305,9 @@ def _grade_chart(res: dict) -> go.Figure:
 _COMPACT_CFG = {"연체율": st.column_config.NumberColumn(format="%.2f%%"),
                 "금액가중": st.column_config.NumberColumn(
                     format="%.2f%%", help="대출금액으로 가중한 연체율 — 큰 대출의 연체가 더 무겁다"),
-                "대출": st.column_config.NumberColumn(format="%d"),
-                "연체": st.column_config.NumberColumn(format="%d"),
-                "브랜드": st.column_config.NumberColumn(format="%d")}
+                "대출": st.column_config.NumberColumn(format="%,.0f"),
+                "연체": st.column_config.NumberColumn(format="%,.0f"),
+                "브랜드": st.column_config.NumberColumn(format="%,.0f")}
 
 
 def _compact(t: pd.DataFrame) -> pd.DataFrame:

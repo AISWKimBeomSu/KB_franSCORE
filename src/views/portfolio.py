@@ -1243,7 +1243,7 @@ def _detail_table(port: pd.DataFrame, kind: str, label: str) -> None:
         column_config={
             "brand_name": st.column_config.TextColumn("브랜드", width="medium"),
             "industry_mid": st.column_config.TextColumn("업종"),
-            "n_stores": st.column_config.NumberColumn("가맹점", format="%d"),
+            "n_stores": st.column_config.NumberColumn("가맹점", format="%,.0f"),
             "deterioration_1y": st.column_config.NumberColumn("브랜드 리스크", format="%.1f%%"),
             "risk_grade": st.column_config.TextColumn("등급"),
             "exposure_mkrw": st.column_config.NumberColumn("여신", format="%.1f 억"),
@@ -1254,7 +1254,7 @@ def _detail_table(port: pd.DataFrame, kind: str, label: str) -> None:
             "el_mkrw": st.column_config.NumberColumn(
                 "대리 예상손실", format="%.2f 억", help=f"여신 × 브랜드 리스크 × LGD ({lgd_txt})"),
             "stress_el_mkrw": st.column_config.NumberColumn("스트레스", format="%.2f 억"),
-            "n_borrowers": st.column_config.NumberColumn("차주 수", format="%d"),
+            "n_borrowers": st.column_config.NumberColumn("차주 수", format="%,.0f"),
             "collateral_mix": st.column_config.TextColumn("담보 구성", width="medium"),
             "match_status": st.column_config.TextColumn("매칭"),
         })

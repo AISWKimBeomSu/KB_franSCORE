@@ -323,20 +323,51 @@ def data_dirs(out: Path | None = None, proc: Path | None = None) -> tuple[Path, 
     return dest / "outputs", dest / "processed"
 
 
-def example_names(scores: pd.DataFrame, n: int = 6) -> list[str]:
-    """공개 모드 예시에 쓸 가명 — 가맹점이 많은 순으로, 업종이 겹치지 않게."""
+# 공개 모드 예시는 중간 규모 브랜드에서 고른다. 가맹점 수가 업계 최상위인 브랜드는 숫자만 봐도
+# 실명이 짐작돼 가명이 의미를 잃는다(커피 3천 곳대, 치킨 2천 곳대는 한두 곳뿐이다).
+SHOWCASE_STORES = (100, 499)
+_GRADE_CYCLE = ("FS1", "FS3", "FS2")        # 예시 표에 등급이 골고루 보이도록 번갈아 고른다
+
+
+def _showcase(scores: pd.DataFrame) -> pd.DataFrame:
     s = scores.assign(n_sort=pd.to_numeric(scores.get("n_stores"), errors="coerce").fillna(0))
-    s = s.sort_values("n_sort", ascending=False).drop_duplicates("industry_mid")
-    return s["brand_name"].astype(str).head(n).tolist()
+    band = s[s["n_sort"].between(*SHOWCASE_STORES)]
+    return (band if len(band) >= 10 else s).sort_values(["n_sort", "brand_name"], ascending=[False, True])
+
+
+def _industries(pool: pd.DataFrame) -> list[str]:
+    """브랜드가 많은 업종부터 — 예시가 흔한 업종에서 나오도록."""
+    vc = pool["industry_mid"].astype(str).value_counts()
+    return sorted(vc.index, key=lambda i: (-vc[i], i))
+
+
+def example_names(scores: pd.DataFrame, n: int = 6) -> list[str]:
+    """공개 모드 예시에 쓸 가명 — 중간 규모에서, 업종이 겹치지 않게, 등급을 번갈아."""
+    pool = _showcase(scores)
+    grade = pool.get("grade", pd.Series("", index=pool.index)).astype(str)
+    out = []
+    for k, ind in enumerate(_industries(pool)[:n]):
+        g = pool[pool["industry_mid"].astype(str) == ind]
+        want = g[grade.loc[g.index] == _GRADE_CYCLE[k % len(_GRADE_CYCLE)]]
+        out.append(str((want if len(want) else g)["brand_name"].iloc[0]))
+    return out
+
+
+def same_industry_pair_rows(scores: pd.DataFrame) -> pd.DataFrame:
+    """비교 예시 두 브랜드 — 가장 흔한 업종의 중간 규모에서, 등급이 갈리면 안정 하나·나머지 하나."""
+    pool = _showcase(scores)
+    if pool.empty:
+        return pool
+    g = pool[pool["industry_mid"].astype(str) == _industries(pool)[0]]
+    grade = g.get("grade", pd.Series("", index=g.index)).astype(str)
+    safe, other = g[grade == "FS1"], g[grade != "FS1"]
+    return pd.concat([safe.head(1), other.head(1)]) if len(safe) and len(other) else g.head(2)
 
 
 def same_industry_pair(scores: pd.DataFrame) -> tuple[str, str]:
-    """비교 질문 예시 — 같은 업종에서 가맹점이 가장 많은 두 브랜드."""
-    s = scores.assign(n_sort=pd.to_numeric(scores.get("n_stores"), errors="coerce").fillna(0))
-    top = s.sort_values("n_sort", ascending=False)
-    ind = str(top["industry_mid"].iloc[0])
-    two = top[top["industry_mid"].astype(str) == ind]["brand_name"].astype(str).head(2).tolist()
-    return (two + two)[:2] if two else ("브랜드 A", "브랜드 B")
+    """비교 질문 예시 — same_industry_pair_rows 의 두 이름."""
+    two = same_industry_pair_rows(scores)["brand_name"].astype(str).tolist()
+    return tuple((two + two)[:2]) if two else ("브랜드 A", "브랜드 B")
 
 
 def unscored_example(panel_full: pd.DataFrame) -> str | None:

@@ -191,7 +191,7 @@ def _table(res: pd.DataFrame, amount_col: str | None) -> None:
         column_config={
             "매칭 상태": st.column_config.TextColumn(width="small"),
             "매칭 브랜드": st.column_config.TextColumn(width="medium"),
-            "가맹점 수": st.column_config.NumberColumn(format="%d"),
+            "가맹점 수": st.column_config.NumberColumn(format="%,.0f"),
             "브랜드 리스크(%)": st.column_config.NumberColumn(format="%.1f%%"),
             "1년 내 악화 위험(%)": st.column_config.NumberColumn(
                 format="%.1f%%", help="건전 브랜드는 모형 확률, 악화 발생 브랜드는 같은 사건수 "
