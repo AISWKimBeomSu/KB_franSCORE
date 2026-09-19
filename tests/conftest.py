@@ -17,10 +17,16 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
+
+# 앱 진입 스크립트는 코드가 바뀌면 src.* 모듈을 비운다(src/app.py _fresh_modules). 테스트 프로세스에서
+# 그러면 다른 테스트가 모듈 객체에 걸어 둔 가짜 전송·monkeypatch 가 사라지므로 끈다. 비우는 동작
+# 자체는 tests/test_app_smoke.py 가 별도 프로세스에서 확인한다.
+os.environ.setdefault("FRANSCORE_NO_MODULE_PURGE", "1")
 
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:

@@ -13,12 +13,45 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
+
+
+def _fresh_modules() -> None:
+    """배포 뒤 옛 모듈이 섞여 도는 것을 막는다 — 코드가 바뀌었으면 src.* 모듈을 비운다.
+
+    실측(2026-09-19): 푸시 뒤 Streamlit Cloud 는 진입 스크립트(이 파일)는 새로 읽었지만
+    이미 import 된 모듈은 **일부만** 새로 읽었다. 목록 머리글(franscore.py)은 새 판인데 같은
+    화면이 쓰는 공통 모듈(common.py)은 옛 판이라 '공시 공백 보정' 안내가 빠졌고, 일괄 조회는
+    사업자번호 열이 없는 옛 화면이었다. 화면마다 버전이 섞이면 수치가 서로 어긋난다.
+
+    그래서 src/**/*.py 의 최종 수정 시각을 코드 서명으로 삼아, 서명이 바뀌면 src.* 를
+    sys.modules 에서 지워 아래 import 가 새 코드를 읽게 한다. 프로세스가 처음 이 코드를
+    실행할 때도 한 번 비운다 — 이 코드가 배포되기 전부터 떠 있던 프로세스를 바로잡기 위해서다.
+    이미 실행 중인 다른 세션은 쥐고 있던 옛 모듈 객체로 그 실행을 마치고, 다음 실행부터 새 코드를 쓴다.
+
+    FRANSCORE_NO_MODULE_PURGE 가 켜져 있으면 건너뛴다 — 테스트는 모듈 객체에 가짜 전송·
+    monkeypatch 를 걸어 두는데, 화면 스모크가 모듈을 비우면 그 설정이 사라진다(tests/conftest.py).
+    """
+    if os.environ.get("FRANSCORE_NO_MODULE_PURGE"):
+        return
+    try:
+        sig = max(p.stat().st_mtime for p in (_ROOT / "src").rglob("*.py"))
+    except (OSError, ValueError):
+        return
+    if getattr(sys, "_franscore_code_sig", None) == sig:
+        return
+    for name in [n for n in sys.modules if n == "src" or n.startswith("src.")]:
+        del sys.modules[name]
+    sys._franscore_code_sig = sig
+
+
+_fresh_modules()
 
 import streamlit as st
 
@@ -51,7 +84,6 @@ PUBLIC_NOTE = ("공개 데모 — 공개 공시 데이터로 방법론을 시연
 
 
 def _is_public_demo() -> bool:
-    import os
     flag = os.getenv("FRANSCORE_PUBLIC_DEMO", "").strip().lower()
     if flag in ("1", "true", "yes"):
         return True

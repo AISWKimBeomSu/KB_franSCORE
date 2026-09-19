@@ -52,3 +52,30 @@ def test_validation_demo_runs_end_to_end():
     assert not at.exception, [e.message for e in at.exception]
     assert any("가상 자료입니다" in w.value for w in at.warning)
     assert any("판정" in m.value for m in at.markdown)
+
+
+def test_changed_code_purges_stale_modules_in_a_fresh_process():
+    """배포 뒤 옛 모듈이 남는 문제 — 코드 서명이 바뀌면 진입 스크립트가 src.* 를 비운다.
+
+    테스트 프로세스에서는 이 동작을 끄므로(conftest) 별도 프로세스에서 확인한다.
+    """
+    import subprocess
+    import sys
+    import textwrap
+    script = textwrap.dedent(f"""
+        import importlib.util, sys
+        sys.path.insert(0, {str(ROOT)!r})
+        import src.grading as old
+        sys._franscore_code_sig = -1.0                      # 예전 코드 서명
+        spec = importlib.util.spec_from_file_location("franscore_app", {APP!r})
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)                        # 진입 스크립트 최상단 실행 (main 은 안 부름)
+        assert sys.modules.get("src.grading") is not old, "옛 모듈이 그대로 남았다"
+        assert sys._franscore_code_sig != -1.0
+        import src.grading as new
+        assert new is not old
+        print("purged")
+    """)
+    env = {k: v for k, v in os.environ.items() if k != "FRANSCORE_NO_MODULE_PURGE"}
+    r = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, timeout=120)
+    assert r.returncode == 0 and "purged" in r.stdout, r.stderr[-2000:]
