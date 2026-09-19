@@ -123,8 +123,13 @@ def _brand_state(cfg: dict, brand_ids: pd.Series,
             key.map(st["n_events"]).astype("Int64"))
 
 
-def score_latest(cfg: dict, year: int | None = None) -> pd.DataFrame:
-    """최신(또는 지정) 연도의 자격 브랜드를 점수화해 outputs/scores_latest.csv 로 저장."""
+def score_cohort(cfg: dict, year: int | None = None) -> tuple[pd.DataFrame, dict]:
+    """지정(기본: 최신) 연도의 자격 브랜드 점수 — **파일을 쓰지 않는다**.
+
+    운영 점수(score_latest)와 시점별 등급 이력(build_grade_history)이 같은 계산을 쓰게
+    하려고 분리했다. 과거 연도를 점수화하다 scores_latest.csv 를 덮어쓰면 안 된다.
+    반환: (점수표, {"target_year", "cal"})
+    """
     set_seed(cfg["seed"])
     proc, out_dir = Path(cfg["paths"]["processed"]), Path(cfg["paths"]["outputs"])
     booster, cal, name_map = _load_artifacts(out_dir)
@@ -285,6 +290,14 @@ def score_latest(cfg: dict, year: int | None = None) -> pd.DataFrame:
              res.loc[high_mask, "brand_state"].value_counts().to_dict())
 
     res = res.sort_values("deterioration_1y", ascending=False).reset_index(drop=True)
+    return res, {"target_year": target_year, "cal": cal}
+
+
+def score_latest(cfg: dict, year: int | None = None) -> pd.DataFrame:
+    """최신(또는 지정) 연도의 자격 브랜드를 점수화해 outputs/scores_latest.csv 로 저장."""
+    out_dir = Path(cfg["paths"]["outputs"])
+    res, info = score_cohort(cfg, year)
+    target_year, cal = info["target_year"], info["cal"]
     dest = out_dir / "scores_latest.csv"
     res.to_csv(dest, index=False, encoding="utf-8-sig")
 
@@ -313,6 +326,49 @@ def score_latest(cfg: dict, year: int | None = None) -> pd.DataFrame:
              "과거 백테스트(metrics.csv·walkforward_metrics.csv)에 있다.")
     return res
 
+
+HISTORY_COLS = ["brand_id", "year", "brand_name", "industry_mid", "n_stores", "grade",
+                "risk_grade", "deterioration_step", "deterioration_1y", "brand_state",
+                "n_events_at_t"]
+HISTORY_BASIS = {"valid": "모형 선택 연도 — 조기종료가 이 해 라벨을 봤다",
+                 "test": "시점 밖 — 모형이 보지 않은 연도",
+                 "latest": "운영 등급 — 라벨 미확정"}
+
+
+def build_grade_history(cfg: dict) -> pd.DataFrame:
+    """공시연도별 **그때의 등급** 표 — 은행 연체 자료로 등급을 검증할 때 쓴다.
+
+    왜 필요한가
+        은행이 2023년에 취급한 가맹점주 대출의 연체를 설명하려면, 그 대출을 **2023년에
+        볼 수 있었던 등급**에 맞춰야 한다. 최신 등급(2024 공시)을 붙이면 대출 이후에 나온
+        정보로 과거를 평가하는 셈이라(look-ahead) 결과가 낙관적으로 나온다.
+
+    어느 연도를 싣는가
+        학습 연도(split_years.json 의 train_years)는 **싣지 않는다**. 그 해 점수는 모형이
+        라벨을 보고 맞춘 in-sample 값이라, 연체 검증에 쓰면 판별력이 부풀려진다.
+        남는 것은 valid(모형 선택에 쓰인 해), test(순수 시점 밖), 최신 산출연도다.
+        등급은 운영 점수와 **같은 계산**(score_cohort — 운영 모형·배포 보정기·고정 컷)이다.
+    """
+    out_dir = Path(cfg["paths"]["outputs"])
+    sy = json.loads((out_dir / "split_years.json").read_text(encoding="utf-8"))
+    frames = []
+    for basis, year in (("valid", sy.get("valid_year")), ("test", sy.get("test_year")),
+                        ("latest", None)):
+        if basis != "latest" and year is None:
+            continue
+        res, info = score_cohort(cfg, year)
+        keep = [c for c in HISTORY_COLS if c in res.columns]
+        part = res[keep].copy()
+        part["year"] = int(info["target_year"])
+        part["basis"] = HISTORY_BASIS[basis]
+        frames.append(part)
+    hist = (pd.concat(frames, ignore_index=True)
+            .drop_duplicates(["brand_id", "year"], keep="last")
+            .sort_values(["year", "brand_id"]).reset_index(drop=True))
+    hist.to_csv(out_dir / "grade_history.csv", index=False, encoding="utf-8-sig")
+    log.info("시점별 등급 이력: %s → grade_history.csv",
+             hist.groupby("year").size().to_dict())
+    return hist
 
 if __name__ == "__main__":
     score_latest(load_config())

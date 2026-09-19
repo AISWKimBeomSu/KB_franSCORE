@@ -15,7 +15,8 @@ from streamlit.testing.v1 import AppTest
 
 ROOT = Path(__file__).resolve().parent.parent
 APP = str(ROOT / "src" / "app.py")
-MENUS = ["FRANSCORE", "브랜드 탐색·비교", "일괄 조회", "점검 큐", "여신 포트폴리오", "AI 상담", "서비스 소개"]
+MENUS = ["FRANSCORE", "브랜드 탐색·비교", "일괄 조회", "점검 큐", "여신 포트폴리오", "등급 검증", "AI 상담",
+         "서비스 소개"]
 
 
 @pytest.fixture(autouse=True)
@@ -40,3 +41,14 @@ def test_brand_deep_link_opens_detail():
     at.run()
     assert not at.exception
     assert any("빽다방" in m.value for m in at.markdown)
+
+
+def test_validation_demo_runs_end_to_end():
+    """등급 검증 — 가상 자료 시연이 판정·표·반출까지 예외 없이 돌고, 가상임을 밝힌다."""
+    at = AppTest.from_file(APP, default_timeout=180)
+    at.session_state["nav_view"] = "등급 검증"
+    at.run()
+    next(b for b in at.button if b.label == "가상 자료로 시연").click().run()
+    assert not at.exception, [e.message for e in at.exception]
+    assert any("가상 자료입니다" in w.value for w in at.warning)
+    assert any("판정" in m.value for m in at.markdown)

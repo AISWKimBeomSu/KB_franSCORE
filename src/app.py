@@ -35,6 +35,8 @@ MENU = {
     "일괄 조회": ("batch", "신청 목록 한 번에 진단"),
     "점검 큐": ("queue", "담당자 배정과 확인 결과 기록"),
     "여신 포트폴리오": ("portfolio", "쏠림·예상손실 실시간 점검"),
+    # 등급의 라벨은 연체가 아니다 — 은행 연체 자료로 검증을 통과해야 심사 보조지표가 된다.
+    "등급 검증": ("validate", "은행 연체 자료로 등급 검증"),
     "AI 상담": ("assistant", "자연어 질의와 근거 인용"),
     "서비스 소개": ("about", "무엇을 어떻게 평가하는가"),
 }
@@ -119,9 +121,9 @@ def main() -> None:
             st.session_state["fs_selected"] = None
         st.session_state["_last_view"] = module_name
 
-    from src.views import about, assistant, batch, explore, franscore, portfolio, queue
+    from src.views import about, assistant, batch, explore, franscore, portfolio, queue, validate
     modules = {"franscore": franscore, "explore": explore, "batch": batch, "queue": queue,
-               "portfolio": portfolio, "assistant": assistant, "about": about}
+               "portfolio": portfolio, "validate": validate, "assistant": assistant, "about": about}
     modules[module_name].render()
 
 

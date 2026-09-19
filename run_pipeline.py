@@ -176,6 +176,8 @@ def run_step(step: str, cfg: dict, demo: bool) -> None:
         # 운영 점수 산출 — 라벨이 아직 없는 최신 코호트 (학습 없이 산출물만 사용)
         from src import score
         score.score_latest(cfg)
+        # 은행 연체 자료 검증용 — 대출을 '취급 당시 등급'에 맞추는 시점별 등급표
+        score.build_grade_history(cfg)
 
     elif step == "correlation":
         # 브랜드 공통요인 상관 실증 (portfolio 이후 — 손실 영향 계산에 exposure·PD가 필요)
