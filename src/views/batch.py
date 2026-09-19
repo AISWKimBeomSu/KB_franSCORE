@@ -40,10 +40,10 @@ def render() -> None:
                     "양식이 없으면 예시 파일로 시작하십시오. 통칭·동명 브랜드·평가 대상 아님이 "
                     "어떻게 처리되는지 함께 보입니다.</div>", unsafe_allow_html=True)
         st.download_button("예시 양식 내려받기 (.xlsx)", batch.template_bytes(),
-                           file_name="FranSCORE_일괄조회_양식.xlsx", use_container_width=True,
+                           file_name="FranSCORE_일괄조회_양식.xlsx", width="stretch",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            on_click="ignore")
-        use_sample = st.button("예시로 바로 실행", use_container_width=True)
+        use_sample = st.button("예시로 바로 실행", width="stretch")
 
     with st.expander("파일 없이 붙여넣기 — 한 줄에 브랜드 하나 (쉼표 뒤 금액은 선택)"):
         text = st.text_area("브랜드 목록", height=140, label_visibility="collapsed",
@@ -145,7 +145,7 @@ def _table(res: pd.DataFrame, amount_col: str | None) -> None:
                    "브랜드가 여럿이라 가장 가까운(가맹점이 많은) 브랜드를 붙였습니다. "
                    "'매칭 브랜드'와 '다른 후보'를 확인하십시오.")
     st.dataframe(
-        show, hide_index=True, use_container_width=True, height=min(620, 42 + 36 * len(show)),
+        show, hide_index=True, width="stretch", height=min(620, 42 + 36 * len(show)),
         column_config={
             "매칭 상태": st.column_config.TextColumn(width="small"),
             "매칭 브랜드": st.column_config.TextColumn(width="medium"),

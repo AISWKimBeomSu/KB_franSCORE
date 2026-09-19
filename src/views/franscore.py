@@ -228,7 +228,7 @@ def _watchlist(df: pd.DataFrame) -> None:
             crit = C.critical_map().get(bid)
             if crit:
                 st.markdown(C.critical_banner_html(crit), unsafe_allow_html=True)
-            if st.button("진단 근거 보기", key=f"w{i}_{bid}", use_container_width=True):
+            if st.button("진단 근거 보기", key=f"w{i}_{bid}", width="stretch"):
                 select_brand(bid)
                 st.rerun()
 
@@ -255,7 +255,7 @@ def _brand_card(r: pd.Series, *, key: str, show_company: bool = False) -> None:
             f"<div style='margin-top:8px'>"
             f"{C.signal_html(str(r['risk_grade']), r['deterioration_1y'], size=11)}</div>",
             unsafe_allow_html=True)
-        if st.button("상세 보기", key=f"c{key}_{bid}", use_container_width=True):
+        if st.button("상세 보기", key=f"c{key}_{bid}", width="stretch"):
             select_brand(bid)
             st.rerun()
 
@@ -381,7 +381,7 @@ def _detail_screen(r: pd.Series) -> None:
     #    그래서 화면 안에 **되돌아가는 경로를 직접** 둔다.
     bc, _ = st.columns([1, 3])
     with bc, st.container(border=False):
-        if st.button("← FRANSCORE 목록", key="fs_back", use_container_width=True):
+        if st.button("← FRANSCORE 목록", key="fs_back", width="stretch"):
             st.session_state[_SEL] = None
             if "brand" in st.query_params:
                 del st.query_params["brand"]
@@ -472,7 +472,7 @@ def _report_actions(bid: str, name: str) -> None:
             st.download_button(
                 "참고의견서 내려받기 (인쇄·PDF용)", doc.encode("utf-8"),
                 file_name=f"FranSCORE_참고의견서_{_safe_file(name)}.html", mime="text/html",
-                type="primary", use_container_width=True, key=f"op_{bid}", on_click="ignore",
+                type="primary", width="stretch", key=f"op_{bid}", on_click="ignore",
                 help="브라우저에서 열어 인쇄(Ctrl/⌘+P) → 'PDF로 저장'하면 여신 품의서에 첨부할 수 있습니다. "
                      "등급·소견·공시 추이·본부 재무·확인 서류 체크리스트가 한 문서에 들어갑니다.")
     with c2:

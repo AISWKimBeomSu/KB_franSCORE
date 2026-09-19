@@ -113,7 +113,7 @@ def _explore(base: pd.DataFrame) -> None:
 
     table = _table(v)
     st.dataframe(
-        table, hide_index=True, use_container_width=True, height=min(560, 44 + 35 * max(len(table), 1)),
+        table, hide_index=True, width="stretch", height=min(560, 44 + 35 * max(len(table), 1)),
         column_config={
             "상세": st.column_config.LinkColumn("상세", display_text="열기", width="small"),
             "브랜드": st.column_config.TextColumn(width="medium"),
@@ -169,7 +169,7 @@ def _compare(base: pd.DataFrame) -> None:
 
     st.markdown("##### 한눈에 비교")
     comp = _comparison_table(sel)
-    st.dataframe(comp, use_container_width=True, height=min(640, 44 + 35 * len(comp)))
+    st.dataframe(comp, width="stretch", height=min(640, 44 + 35 * len(comp)))
     st.caption("본부 재무는 금융감독원 감사보고서·공정위 정보공개서에서 확인된 경우만 표시합니다. "
                "'확인 못 함'은 비대상이거나 매칭에 실패한 경우입니다.")
 

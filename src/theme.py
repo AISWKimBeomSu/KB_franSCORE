@@ -175,7 +175,7 @@ def plot(fig: go.Figure, *, height: int | None = None, key: str | None = None) -
     """
     if height:
         fig.update_layout(height=height)
-    st.plotly_chart(fig, use_container_width=True, key=key, theme=None,
+    st.plotly_chart(fig, width="stretch", key=key, theme=None,
                     config={"displayModeBar": False, "responsive": True})
 
 

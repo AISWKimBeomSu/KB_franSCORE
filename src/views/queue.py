@@ -320,7 +320,7 @@ def _fulltable(work: pd.DataFrame, yr) -> None:
     view = _export_frame(work, state)
     st.dataframe(
         view.drop(columns=["브랜드ID"]), hide_index=True,
-        use_container_width=True, height=460,
+        width="stretch", height=460,
         column_config={
             "브랜드": st.column_config.TextColumn(width="medium"),
             "가맹점 수": st.column_config.NumberColumn(format="%d"),
@@ -345,7 +345,7 @@ def _fulltable(work: pd.DataFrame, yr) -> None:
     data, ext, mime = _excel(view)
     c1.download_button(
         f"점검 목록 내려받기 ({'Excel' if ext == 'xlsx' else 'CSV'})", data,
-        file_name=f"franscore_점검큐_{yr}.{ext}", mime=mime, use_container_width=True)
+        file_name=f"franscore_점검큐_{yr}.{ext}", mime=mime, width="stretch")
     log = pd.DataFrame([{"brand_id": k, **v} for k, v in state.items()])
     c2.download_button(
         f"처리 기록 내려받기 ({len(log)}건)",
@@ -353,14 +353,14 @@ def _fulltable(work: pd.DataFrame, yr) -> None:
             columns=["brand_id", "brand_name", "status", "owner", "note", "updated"])
          ).to_csv(index=False).encode("utf-8-sig"),
         file_name=f"franscore_처리기록_{yr}.csv", mime="text/csv",
-        disabled=log.empty, use_container_width=True)
+        disabled=log.empty, width="stretch")
 
     hist = pd.DataFrame(_log())
     with st.expander(f"변경 이력 {len(hist):,}건 — 누가·언제·무엇을·당시 등급", expanded=False):
         if hist.empty:
             st.caption("아직 변경 이력이 없습니다. 담당자·처리상태·메모를 바꾸면 여기에 쌓입니다.")
         else:
-            st.dataframe(hist.iloc[::-1].head(200), hide_index=True, use_container_width=True)
+            st.dataframe(hist.iloc[::-1].head(200), hide_index=True, width="stretch")
             st.download_button(
                 "변경 이력 내려받기 (CSV)", hist.to_csv(index=False).encode("utf-8-sig"),
                 file_name=f"franscore_변경이력_{yr}.csv", mime="text/csv", on_click="ignore")

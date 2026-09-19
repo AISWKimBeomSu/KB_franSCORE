@@ -72,7 +72,7 @@ def _sidebar() -> str:
     current = st.session_state.setdefault(_NAV, next(iter(MENU)))
     for label in MENU:
         if st.sidebar.button(label, key=f"nav_{MENU[label][0]}",
-                             use_container_width=True,
+                             width="stretch",
                              type="primary" if label == current else "secondary"):
             st.session_state[_NAV] = label
             st.session_state["fs_selected"] = None

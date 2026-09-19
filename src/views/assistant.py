@@ -32,7 +32,7 @@ def render() -> None:
         st.markdown("##### 이렇게 물어보실 수 있습니다")
         cols = st.columns(2)
         for i, ex in enumerate(EXAMPLES):
-            if cols[i % 2].button(ex, key=f"ex_{i}", use_container_width=True):
+            if cols[i % 2].button(ex, key=f"ex_{i}", width="stretch"):
                 _enqueue(ex)
                 st.rerun()
         st.write("")
