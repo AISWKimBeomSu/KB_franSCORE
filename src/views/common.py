@@ -152,6 +152,39 @@ def load_coverage() -> pd.DataFrame | None:
     return _csv(str(p), _mtime(p)) if p.exists() else None
 
 
+def load_localdata_signal() -> pd.DataFrame | None:
+    """월별 인허가 폐점 신호(src/localdata.py CLI 산출물). 배치가 만들어 둔 파일만 읽는다."""
+    p = out_dir() / "localdata_signal.csv"
+    return _csv(str(p), _mtime(p)) if p.exists() else None
+
+
+_TREND_KIND = {"악화": "High", "개선": "Low", "유지": "Neutral", "판단보류": "Neutral"}
+
+
+def localdata_html(brand_id) -> str:
+    """브랜드의 최근 3개월 인허가 폐업·개업 — 연 1회 공시 사이를 메우는 월 단위 신호.
+
+    신호표가 없거나 이 브랜드가 없으면 아무것도 그리지 않는다(없는 신호를 '이상 없음'으로
+    보이게 하지 않는다). 범위(전국/지역 표본)를 함께 적는다 — 지역 표본의 신호는 그 지역의 신호다.
+    """
+    sig = load_localdata_signal()
+    if sig is None or sig.empty:
+        return ""
+    row = sig[sig["brand_id"].astype(str) == str(brand_id)]
+    if row.empty:
+        return ""
+    r = row.iloc[0]
+    trend = str(r.get("trend") or "판단보류")
+    scope = str(r.get("scope") or "지역 표본")
+    n_act = pd.to_numeric(pd.Series([r.get("n_active_end")]), errors="coerce").iloc[0]
+    obs = f" · 관찰 점포 {int(n_act):,}곳" if pd.notna(n_act) else ""
+    return (f"<div style='margin-top:8px;font-size:{theme.FS_SM};color:{theme.TEXT_SUB};line-height:1.6'>"
+            f"<b style='color:{theme.INK}'>월별 인허가 신호</b> · {esc(r.get('as_of_month'))} 기준 · "
+            f"{esc(scope)}{obs} {theme.chip(trend, _TREND_KIND.get(trend, 'Neutral'))}<br>"
+            f"최근 3개월 폐업 {int(r.get('close_3m') or 0):,}건 · 개업 {int(r.get('open_3m') or 0):,}건 — "
+            f"{esc(r.get('reason'))}</div>")
+
+
 def is_bridged(row) -> bool:
     b = str(row.get("eligibility_basis") or "") if hasattr(row, "get") else ""
     return bool(b) and b not in ("정규", "nan")

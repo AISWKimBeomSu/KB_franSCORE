@@ -13,9 +13,14 @@
       '동명 브랜드'로 표시한다 — 잘못 붙은 진단이 조용히 결재에 올라가면 안 된다.
     · 평가 대상이 아닌 브랜드는 '공시에는 있으나 평가 대상 아님'과 '공시에 없음'을 구분한다.
 
+차주 휴·폐업 (선택)
+    목록에 사업자번호 열이 있으면 국세청 상태조회(src/nts.py)로 계속·휴업·폐업을 붙인다.
+    공시는 1~2년 늦지만 국세청은 30분 주기로 갱신된다 — 신청인이 이미 폐업했다면 브랜드
+    등급보다 먼저 봐야 할 사실이다. 키(DATA_GO_KR_KEY)가 없으면 '확인불가'와 설정 방법을 남긴다.
+
 개인정보
     신청 목록에는 차주 정보가 섞여 올 수 있다. 이 모듈은 파일을 디스크에 쓰지 않고
-    메모리에서만 처리한다. 브랜드 열 외의 열은 해석하지 않고 그대로 되돌려 준다.
+    메모리에서만 처리한다. 브랜드·사업자번호 열 외의 열은 해석하지 않고 그대로 되돌려 준다.
 """
 from __future__ import annotations
 
@@ -32,6 +37,8 @@ from src.brand_search import ALIASES, normalize, search
 BRAND_COLUMNS = ("브랜드명", "브랜드", "가맹브랜드", "영업표지", "가맹점 브랜드", "프랜차이즈",
                  "brand_name", "brand")
 AMOUNT_HINTS = ("신청금액", "대출금액", "금액", "여신", "한도", "amount")
+BNO_HINTS = ("사업자등록번호", "사업자번호", "b_no", "brno", "bizno")
+BIZ_COLUMNS = ("사업자 상태", "폐업일", "사업자 확인")
 
 MATCH_EXACT = "정확 일치"
 MATCH_ALIAS = "통칭 일치"
@@ -81,6 +88,50 @@ def detect_amount_column(df: pd.DataFrame) -> str | None:
         if any(h in str(c) for h in AMOUNT_HINTS) and pd.to_numeric(df[c], errors="coerce").notna().any():
             return str(c)
     return None
+
+
+def detect_bno_column(df: pd.DataFrame) -> str | None:
+    """사업자번호 열 — 이름에 단서가 있고, 값의 절반 이상이 10자리 번호로 읽히는 열."""
+    from src.nts import normalize_bno
+    for c in df.columns:
+        key = str(c).replace(" ", "").lower()
+        if not any(h in key for h in BNO_HINTS):
+            continue
+        vals = df[c].dropna().astype(str).str.strip()
+        vals = vals[vals != ""].head(50)
+        if len(vals) and vals.map(lambda v: normalize_bno(v, check_digit=False) is not None).mean() >= 0.5:
+            return str(c)
+    return None
+
+
+def attach_business_status(res: pd.DataFrame, bno_col: str, lookup=None) -> tuple[pd.DataFrame, dict]:
+    """행마다 국세청 사업자 상태를 붙인다 — '사업자 상태'·'폐업일'·'사업자 확인' 세 열.
+
+    번호를 적지 않은 행은 빈칸으로 둔다(확인불가와 구분). lookup 은 테스트 주입용이고,
+    기본은 src.nts.lookup_status (키가 없으면 네트워크 없이 전 행 '확인불가' + 설정 방법).
+    """
+    from src import nts
+    fn = lookup or nts.lookup_status
+    raw = res[bno_col].astype(object).where(res[bno_col].astype(str).str.strip() != "", None)
+    got = fn(list(raw)).reset_index(drop=True)
+    blank = raw.isna().to_numpy()
+    status = got["status"].astype(str).where(~blank, "")
+    closed = pd.to_datetime(got["closed_on"], errors="coerce").dt.strftime("%Y-%m-%d").fillna("")
+    note = got["error"].fillna("").astype(str)
+    note = note.where(note != "", got["checksum_ok"].map(
+        lambda ok: "" if ok else "검증번호 불일치 — 번호 오기 의심"))
+    out = res.copy()
+    pos = list(out.columns).index("매칭 상태") if "매칭 상태" in out.columns else len(out.columns)
+    for i, (name, col) in enumerate(zip(BIZ_COLUMNS, (status, closed.where(~blank, ""),
+                                                        note.where(~blank, "")), strict=True)):
+        out.insert(pos + i, name, col.to_numpy())
+    asked = ~blank
+    summary = {"asked": int(asked.sum()),
+               "closed": int((status == nts.STATUS_BY_CODE["03"]).sum()),
+               "suspended": int((status == nts.STATUS_BY_CODE["02"]).sum()),
+               "unknown": int(((status == nts.UNKNOWN) & asked).sum()),
+               "no_key": bool(asked.any() and note[asked].str.contains(nts.KEY_ENV).all())}
+    return out, summary
 
 
 def _is_exact(query: str, name: str) -> bool:
@@ -232,10 +283,14 @@ def to_excel(res: pd.DataFrame, summary: dict, meta: dict) -> bytes:
         pd.DataFrame(summary["by_grade"]).to_excel(w, index=False, sheet_name="요약")
         ws2 = w.sheets["요약"]
         base = len(summary["by_grade"]) + 3
-        for j, (k, v) in enumerate((("전체 건수", summary["n"]), ("매칭 성공", summary["matched"]),
-                                    ("확인 필요(동명·유사)", summary["need_check"]),
-                                    ("미평가·미발견", summary["unmatched"]),
-                                    ("중대 신호 보유", summary["critical"]))):
+        lines = [("전체 건수", summary["n"]), ("매칭 성공", summary["matched"]),
+                 ("확인 필요(동명·유사)", summary["need_check"]),
+                 ("미평가·미발견", summary["unmatched"]), ("중대 신호 보유", summary["critical"])]
+        biz = summary.get("biz")
+        if biz:
+            lines += [("사업자 폐업(국세청)", biz["closed"]), ("사업자 휴업(국세청)", biz["suspended"]),
+                      ("사업자 상태 확인불가", biz["unknown"])]
+        for j, (k, v) in enumerate(lines):
             ws2.cell(row=base + j, column=1, value=k)
             ws2.cell(row=base + j, column=2, value=v)
         ws2.column_dimensions["A"].width = 22
@@ -250,6 +305,9 @@ def to_excel(res: pd.DataFrame, summary: dict, meta: dict) -> bytes:
             "같은 사건수 과거 브랜드의 다음 해 재발동 실현율입니다.",
             "'확인 필요' 행은 이름이 정확히 일치하지 않아 가장 가까운 브랜드를 붙인 것입니다 — 반드시 확인하십시오.",
             "이 자료는 2선 리스크 관리 참고용입니다. 여신 승인·거절, 한도·금리 결정에 사용하지 않습니다.",
+            *(["'사업자 상태'는 국세청 사업자등록 상태조회(30분 주기 갱신) 결과입니다. 공시(연 1회)보다 "
+               "최신이므로, 폐업·휴업 차주는 브랜드 등급과 무관하게 먼저 확인하십시오."]
+              if summary.get("biz") else []),
         ]
         pd.DataFrame({"안내": notes}).to_excel(w, index=False, sheet_name="안내")
         w.sheets["안내"].column_dimensions["A"].width = 120

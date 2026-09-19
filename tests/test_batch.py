@@ -75,3 +75,48 @@ def test_csv_cp949_upload_is_read():
     raw = "브랜드명,금액\n인생냉면,80\n".encode("cp949")
     df = batch.read_upload("list.csv", raw)
     assert df.iloc[0]["브랜드명"] == "인생냉면"
+
+
+# ── 차주 휴·폐업 (국세청 상태조회) ──────────────────────────────────────────
+
+def test_business_number_column_is_detected_only_when_values_look_like_numbers():
+    df = pd.DataFrame({"브랜드명": ["메가커피", "빽다방"], "사업자등록번호": ["124-81-00998", "2208162517"],
+                       "사업자 구분": ["개인", "법인"]})
+    assert batch.detect_bno_column(df) == "사업자등록번호"
+    assert batch.detect_bno_column(df.drop(columns="사업자등록번호")) is None
+
+
+def test_business_status_columns_are_attached_before_match_columns(ctx):
+    df = pd.DataFrame({"브랜드명": ["메가커피", "빽다방", "국수나무", "교촌치킨"],
+                       "사업자번호": ["124-81-00998", "", "220-81-62517", "12345"]})
+    res = batch.screen(df, "브랜드명", ctx)
+
+    def fake_lookup(values):
+        assert values[1] is None                     # 빈칸은 묻지 않는다
+        return pd.DataFrame({
+            "input": [str(v) for v in values], "b_no": ["1248100998", None, "2208162517", None],
+            "status": ["폐업", "확인불가", "휴업", "확인불가"], "status_code": ["03", "", "02", ""],
+            "closed_on": [pd.Timestamp("2026-03-31"), pd.NaT, pd.NaT, pd.NaT], "tax_type": ["", "", "", ""],
+            "error": [None, "형식 오류 — 숫자 10자리가 아닙니다.", None, "형식 오류 — 숫자 10자리가 아닙니다."],
+            "checksum_ok": [True, False, True, False]})
+
+    out, s = batch.attach_business_status(res, "사업자번호", lookup=fake_lookup)
+    cols = list(out.columns)
+    assert cols.index("사업자 상태") < cols.index("매칭 상태")
+    assert out["사업자 상태"].tolist() == ["폐업", "", "휴업", "확인불가"]
+    assert out["폐업일"].tolist() == ["2026-03-31", "", "", ""]
+    assert "형식 오류" in out.loc[3, "사업자 확인"] and out.loc[1, "사업자 확인"] == ""
+    assert s == {"asked": 3, "closed": 1, "suspended": 1, "unknown": 1, "no_key": False}
+
+
+def test_without_key_rows_say_how_to_enable_and_no_network(ctx, monkeypatch):
+    import requests
+
+    from src import nts
+    monkeypatch.delenv(nts.KEY_ENV, raising=False)
+    monkeypatch.setattr(nts, "load_secrets", lambda: [])
+    monkeypatch.setattr(requests, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("network")))
+    res = batch.screen(pd.DataFrame({"브랜드명": ["메가커피"], "사업자번호": ["124-81-00998"]}), "브랜드명", ctx)
+    out, s = batch.attach_business_status(res, "사업자번호")
+    assert out.loc[0, "사업자 상태"] == nts.UNKNOWN and s["no_key"]
+    assert nts.DATASET_ID in out.loc[0, "사업자 확인"]

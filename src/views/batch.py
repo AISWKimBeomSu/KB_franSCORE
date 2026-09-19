@@ -17,6 +17,13 @@ from src.views import common as C
 _RES = "batch_result"
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def _biz_status(values: tuple) -> pd.DataFrame:
+    """국세청 원천이 30분 주기로 갱신되므로 같은 목록은 30분 동안 다시 묻지 않는다."""
+    from src import nts
+    return nts.lookup_status(list(values))
+
+
 @st.cache_resource(show_spinner=False)
 def _context(m_scores: float, m_diag: float) -> batch.Context:
     """산출물 묶음은 프로세스당 한 번만 읽는다 (산출물이 바뀌면 키가 바뀐다)."""
@@ -81,18 +88,36 @@ def render() -> None:
     cols = [str(c) for c in df.columns]
     guess_b = batch.detect_brand_column(df)
     guess_a = batch.detect_amount_column(df)
-    s1, s2 = st.columns(2)
+    guess_n = batch.detect_bno_column(df)
+    s1, s2, s3 = st.columns(3)
     brand_col = s1.selectbox("브랜드명 열", cols, index=cols.index(guess_b) if guess_b in cols else 0)
     amt_opts = ["(없음)", *cols]
     amount_col = s2.selectbox("신청금액 열 (선택)", amt_opts,
                               index=amt_opts.index(guess_a) if guess_a in amt_opts else 0)
     amount_col = None if amount_col == "(없음)" else amount_col
+    bno_col = s3.selectbox("사업자번호 열 (선택)", amt_opts,
+                           index=amt_opts.index(guess_n) if guess_n in amt_opts else 0,
+                           help="있으면 국세청 사업자등록 상태(계속·휴업·폐업)를 함께 붙입니다. "
+                                "공시는 1~2년 늦지만 국세청은 30분 주기로 갱신됩니다.")
+    bno_col = None if bno_col == "(없음)" else bno_col
 
     ctx = _context(C._mtime(C.out_dir() / "scores_latest.csv"),
                    C._mtime(C.out_dir() / "brand_diagnosis.parquet"))
     with st.spinner("브랜드를 찾아 진단을 붙이는 중…"):
         res = batch.screen(df, brand_col, ctx, amount_col=amount_col)
     summ = batch.summarize(res, amount_col)
+    if bno_col:
+        with st.spinner("국세청 사업자 상태를 확인하는 중…"):
+            res, biz = batch.attach_business_status(res, bno_col,
+                                                    lookup=lambda v: _biz_status(tuple(v)))
+        summ["biz"] = biz
+        if biz["no_key"]:
+            st.info("사업자 휴·폐업 확인에는 국세청 상태조회 키가 필요합니다 — 공공데이터포털 "
+                    "「국세청_사업자등록정보 진위확인 및 상태조회 서비스」(15081808)를 활용신청한 뒤 "
+                    "`DATA_GO_KR_KEY` 로 설정하십시오. 지금은 '확인불가'로 표시합니다.")
+        elif biz["closed"] or biz["suspended"]:
+            st.error(f"**국세청 기준 폐업 {biz['closed']:,}건 · 휴업 {biz['suspended']:,}건** — 브랜드 "
+                     "등급과 무관하게 먼저 확인하십시오. '사업자 상태' 열을 보십시오.")
     _kpis(summ, amount_col)
     _table(res, amount_col)
 
@@ -119,7 +144,9 @@ def _empty_hint() -> None:
         "② 브랜드를 공시 등록명으로 찾아 붙입니다 — 통칭(메가커피)도 찾고, 이름이 정확히 같지 "
         "않으면 <b>확인 필요</b>로 표시합니다.<br>"
         "③ 등급·브랜드 상태·중대 신호·확인 사항·권고 서류가 붙은 결과를 엑셀로 내려받아 "
-        "품의 자료에 붙입니다.</div>".replace("{ink}", theme.INK),
+        "품의 자료에 붙입니다.<br>"
+        "④ 목록에 <b>사업자번호</b> 열이 있으면 국세청 사업자 상태(계속·휴업·폐업)도 함께 붙입니다 "
+        "— 공시보다 최신이라 이미 문을 닫은 신청인을 먼저 걸러 냅니다.</div>".replace("{ink}", theme.INK),
         unsafe_allow_html=True)
 
 

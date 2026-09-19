@@ -925,13 +925,16 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", default=str(ROOT / "outputs" / "localdata_signal.csv"))
     ap.add_argument("--flows-out", default=None, help="월간 흐름도 저장하려면 경로")
     ap.add_argument("--months", type=int, default=24)
+    ap.add_argument("--scope", default="지역 표본",
+                    help="화면에 밝힐 신호 범위 — 전국 파일로 만들었으면 '전국'")
     args = ap.parse_args(argv)
     matched = match_brands(load_records(args.csv), pd.read_csv(args.brands))
     flows = monthly_brand_flows(matched, months=args.months)
     if args.flows_out:
         flows.assign(month=flows["month"].astype(str)).to_csv(args.flows_out, index=False, encoding="utf-8-sig")
     sig = closure_signal(flows)
-    sig.assign(as_of_month=sig["as_of_month"].astype(str)).to_csv(args.out, index=False, encoding="utf-8-sig")
+    (sig.assign(as_of_month=sig["as_of_month"].astype(str), scope=args.scope)
+        .to_csv(args.out, index=False, encoding="utf-8-sig"))
     log.info("저장: %s (%d개 브랜드)", args.out, len(sig))
 
 

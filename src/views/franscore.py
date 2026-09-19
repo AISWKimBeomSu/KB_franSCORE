@@ -431,6 +431,7 @@ def _detail_screen(r: pd.Series) -> None:
             f"{C.GRADE_ACTION.get(grade, '')}</div>", unsafe_allow_html=True)
         st.markdown(_summary_sentence(r), unsafe_allow_html=True)
         st.markdown(C.population_note(r), unsafe_allow_html=True)
+        st.markdown(C.localdata_html(bid), unsafe_allow_html=True)      # 신호표가 있을 때만
         st.markdown(C.critical_banner_html(C.critical_map().get(bid, [])), unsafe_allow_html=True)
         _report_actions(bid, name)
     with h2:
