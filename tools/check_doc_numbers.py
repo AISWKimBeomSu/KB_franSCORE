@@ -642,6 +642,29 @@ def main() -> int:
     need("뉴스 추출 정확도 규칙(전체)", f"{le['all']['rules']['accuracy']:.3f}", "README")
     need("뉴스 정답셋 건수", f"{le['all']['rules']['n']}건", "README")
 
+    # 월별 신호의 타당도는 README 헤드라인에도 오른다. 신호표를 새로 만들면(월 1회) 판정 분포는
+    # 바뀌지만 이 값들은 validate_localdata.py 를 다시 돌릴 때만 바뀐다 — 그래서 분포는 문서에
+    # 적지 않고, 타당도만 대조한다.
+    lv_p = OUT / "localdata_validation.json"
+    if lv_p.exists():
+        head("⑪ 월별 폐점 신호 — 인허가 ↔ 공시 동시 타당도 (tools/validate_localdata.py)")
+        lv = json.loads(lv_p.read_text(encoding="utf-8"))
+        years = sorted(lv["years"], key=int)
+        for y in years:
+            cv, gv = lv["years"][y]["close_vs_churn"], lv["years"][y]["growth_vs_growth"]
+            docs = ("RESULTS", "TECH", "README") if y == years[-1] else ("RESULTS", "TECH")
+            need(f"{y} 폐점률 순위상관", f"{cv['rho']:.3f}", *docs)
+            need(f"{y} 폐점률 순위상관 CI", f"[{cv['ci_lo']:.3f}, {cv['ci_hi']:.3f}]", "RESULTS", "TECH")
+            need(f"{y} 순증감 순위상관", f"{gv['rho']:.3f}", *docs)
+            need(f"{y} 순증감 순위상관 CI", f"[{gv['ci_lo']:.3f}, {gv['ci_hi']:.3f}]", "RESULTS", "TECH")
+            need(f"{y} 폐점률 비교 브랜드 수", f"{cv['n']:,}개", *docs)
+            need(f"{y} 순증감 비교 브랜드 수", f"{gv['n']:,}개", "RESULTS", "TECH")
+            need(f"{y} 매칭 완전성 중앙값", f"{100 * lv['years'][y]['coverage_median']:.1f}%", *docs)
+        need("인허가 기록 수", thou(lv["n_records"]), "RESULTS", "TECH")
+        need("인허가 기록 수(README 표기)", f"{lv['n_records'] // 10_000:,}만여", "README")
+        need("인허가 매칭 브랜드 수", thou(lv["n_brands_matched"]), "RESULTS", "TECH")
+        need("인허가 매칭 기록 수", thou(lv["n_matched"]), "TECH")
+
     need("OPS 자동대조 건수", f"{_checked + 1}건", "OPS", "README")   # 이 줄 자신을 포함한 수
 
     head("결과")
