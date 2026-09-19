@@ -79,3 +79,22 @@ def test_changed_code_purges_stale_modules_in_a_fresh_process():
     env = {k: v for k, v in os.environ.items() if k != "FRANSCORE_NO_MODULE_PURGE"}
     r = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, timeout=120)
     assert r.returncode == 0 and "purged" in r.stdout, r.stderr[-2000:]
+
+
+@pytest.mark.skipif(not (ROOT / "outputs" / "localdata_signal.csv").exists(), reason="월별 신호표 없음")
+def test_queue_collects_monthly_signal_brands_regardless_of_grade():
+    """점검 큐 — 월별 폐점 신호가 '악화'·'확인 필요'인 브랜드는 등급이 '안정'이어도 큐에 오르고,
+    한 번에 모아 볼 수 있다 (공시를 1~2년 기다리지 않는 조기경보)."""
+    import pandas as pd
+    sig = pd.read_csv(ROOT / "outputs" / "localdata_signal.csv", encoding="utf-8-sig")
+    scored = set(pd.read_csv(ROOT / "outputs" / "scores_latest.csv", encoding="utf-8-sig")["brand_id"].astype(str))
+    flagged = sig[sig["trend"].isin(["악화", "확인 필요"]) & sig["brand_id"].astype(str).isin(scored)]
+    at = AppTest.from_file(APP, default_timeout=120)
+    at.session_state["nav_view"] = "점검 큐"
+    at.run()
+    box = next(c for c in at.checkbox if c.label.startswith("월별 폐점 신호만"))
+    assert f"({len(flagged):,}건" in box.label
+    box.check().run()
+    assert not at.exception, [e.message for e in at.exception]
+    assert any(f"조건에 맞는 **{len(flagged):,}건**" in c.value for c in at.caption)
+    assert any("월별 인허가 신호" in m.value for m in at.markdown)

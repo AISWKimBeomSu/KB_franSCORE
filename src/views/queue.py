@@ -21,6 +21,8 @@ STATUS = ["미착수", "검토 중", "조치 완료", "이상 없음"]
 STATUS_KIND = {"미착수": "High", "검토 중": "Medium",
                "조치 완료": "Low", "이상 없음": "Neutral"}
 _KEY = "queue_state"
+# 월별 인허가 신호 중 점검 큐에 올리는 판정 — 연 1회 공시 사이의 조기경보 (src/localdata.py)
+LD_FLAGS = ("악화", "확인 필요")
 _STATE_FILE = "queue_state.json"
 
 
@@ -153,11 +155,17 @@ def render() -> None:
 
     # 주의·관찰 + **중대 신호가 있는 브랜드는 등급과 무관하게** 큐에 올린다
     # (계속기업 불확실성·자본잠식·등록취소가 있는데 '안정'이라 큐 밖에 있던 브랜드가 있었다).
+    # 월별 폐점 신호가 '악화'·'확인 필요'인 브랜드도 등급과 무관하게 올린다 — 공시 사이에 점포가
+    # 한꺼번에 빠지는 브랜드는 다음 공시(1~2년 뒤)를 기다리지 않고 확인해야 한다.
     crit = C.critical_map()
+    ld = _monthly_map()
+    ld_ids = {b for b, v in ld.items() if v["trend"] in LD_FLAGS}
     work = df[df["risk_grade"].isin(["High", "Medium"])
-              | df["brand_id"].astype(str).isin(crit)].copy()
+              | df["brand_id"].astype(str).isin(crit)
+              | df["brand_id"].astype(str).isin(ld_ids)].copy()
     work["중대 신호"] = work["brand_id"].astype(str).map(
         lambda b: " · ".join(x["title"] for x in crit.get(b, [])))
+    work["월별 폐점 신호"] = work["brand_id"].astype(str).map(lambda b: ld.get(b, {}).get("trend", ""))
     if diag is not None and not diag.empty:
         work = work.merge(
             diag[["brand_id", "headline_detail", "n_risk", "n_high", "categories",
@@ -193,6 +201,15 @@ def render() -> None:
         _fulltable(work, yr)
 
 
+def _monthly_map() -> dict[str, dict]:
+    """brand_id → 월별 인허가 신호 {trend, as_of}. 신호표가 없으면 빈 dict (없는 신호를 만들지 않는다)."""
+    sig = C.load_localdata_signal()
+    if sig is None or sig.empty:
+        return {}
+    return {str(b): {"trend": str(t), "as_of": str(m)}
+            for b, t, m in zip(sig["brand_id"], sig["trend"], sig["as_of_month"], strict=False)}
+
+
 # ---------------------------------------------------------------------------
 
 def _worklist(work: pd.DataFrame) -> None:
@@ -201,13 +218,22 @@ def _worklist(work: pd.DataFrame) -> None:
                             format_func=lambda g: C.GRADE_KR.get(g, g))
     stats = f2.multiselect("처리상태", STATUS, default=["미착수", "검토 중"])
     min_stores = f3.number_input("최소 가맹점 수", min_value=0, value=0, step=10)
-    with_crit = st.checkbox("중대 신호 브랜드는 등급과 무관하게 포함", value=True,
+    o1, o2 = st.columns(2)
+    with_crit = o1.checkbox("중대 신호 브랜드는 등급과 무관하게 포함", value=True,
                             help="본부 계속기업 불확실성·자본잠식·정보공개서 등록취소처럼 사건 자체가 "
                                  "위험 신호인 브랜드입니다. 모형 등급이 낮아도 먼저 확인합니다.")
+    is_ld = work["월별 폐점 신호"].isin(LD_FLAGS)
+    only_ld = o2.checkbox(f"월별 폐점 신호만 ({int(is_ld.sum()):,}건, 등급 무관)", value=False,
+                          disabled=not bool(is_ld.any()),
+                          help="지자체 인허가로 본 최근 3개월 폐업이 전년 같은 때보다 유의하게 많거나(악화), "
+                               "한 달에 한꺼번에 폐업 처리된(확인 필요) 브랜드입니다. 연 1회 공시를 "
+                               "기다리지 않고 확인할 대상입니다.")
 
     view = work
     is_crit = view["중대 신호"].astype(str).str.len() > 0
-    if grades:
+    if only_ld:
+        view = view[is_ld]
+    elif grades:
         view = view[view["risk_grade"].isin(grades) | (is_crit if with_crit else False)]
     if stats:
         view = view[view["처리상태"].isin(stats)]
@@ -242,6 +268,7 @@ def _worklist(work: pd.DataFrame) -> None:
                 "당시 브랜드 상태": C.state_label(r.get("brand_state"), r.get("n_events_at_t")),
                 "당시 1년 내 악화 위험(%)": round(float(r.get("_risk", 0.0)) * 100, 1),
                 "당시 중대 신호": str(r.get("중대 신호") or ""),
+                "당시 월별 폐점 신호": str(r.get("월별 폐점 신호") or ""),
                 "기준 실적연도": str(C.scored_year())}
         with st.container(border=True):
             a, b = st.columns([3, 1.5])
@@ -269,6 +296,8 @@ def _worklist(work: pd.DataFrame) -> None:
                 crit_items = C.critical_map().get(bid)
                 if crit_items:
                     st.markdown(C.critical_banner_html(crit_items), unsafe_allow_html=True)
+                if str(r.get("월별 폐점 신호") or "") in (*LD_FLAGS, "개선"):     # 유지·판단보류는 생략
+                    st.markdown(C.localdata_html(bid), unsafe_allow_html=True)
             with b:
                 st.text_input("담당자", value=cur.get("owner", ""), key=f"own_{bid}",
                               placeholder="이름 입력", on_change=_on_edit, args=(bid, name, snap))
@@ -306,6 +335,7 @@ def _export_frame(work: pd.DataFrame, state: dict) -> pd.DataFrame:
             "중대 소견 수": pd.to_numeric(r.get("n_high"), errors="coerce"),
             "위험 영역": r.get("categories"),
             "중대 신호": r.get("중대 신호") or "",
+            "월별 폐점 신호": r.get("월별 폐점 신호") or "",
             "대표 소견": r.get("headline_detail"),
             "처리상태": s.get("status", "미착수"),
             "담당자": s.get("owner", ""),
@@ -338,7 +368,7 @@ def _fulltable(work: pd.DataFrame, yr) -> None:
              if store_mode() == "file" else
              "**이 브라우저 세션에만** 저장됩니다 — 공개 데모라 방문자끼리 기록을 공유하지 않습니다")
     st.caption(
-        f"처리 상태는 {where}. 이 화면에는 사용자 인증도, 변경 이력도, 결재 연동도 없습니다 — "
+        f"처리 상태는 {where}. 변경 이력은 아래에 쌓이지만 사용자 인증과 결재 연동은 없습니다 — "
         "**공식 기록은 아래에서 내려받아 은행 결재 흐름에 넘기십시오.** "
         "은행 내부 도입 시에는 이 저장소를 업무 DB 테이블로 대체합니다.")
     c1, c2 = st.columns(2)
