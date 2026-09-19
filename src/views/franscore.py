@@ -517,8 +517,14 @@ def _tab_findings(findings: pd.DataFrame | None, row: pd.Series | None = None) -
     # 소견을 다 읽어야 결론이 나오면 아무도 안 읽는다 — 조합을 먼저 한 화면에 보인다.
     if row is not None:
         summary = C.risk_summary_html(row, findings)
-        if summary:
-            st.markdown(summary, unsafe_allow_html=True)
+        factors = _model_factors_html(row)
+        if summary and factors:
+            a, b = st.columns([1.15, 1])
+            a.markdown(summary, unsafe_allow_html=True)
+            b.markdown(factors, unsafe_allow_html=True)
+            st.write("")
+        elif summary or factors:
+            st.markdown(summary or factors, unsafe_allow_html=True)
             st.write("")
 
     chips = C.category_summary(findings)
@@ -541,6 +547,53 @@ def _tab_findings(findings: pd.DataFrame | None, row: pd.Series | None = None) -
             file_name=f"FranSCORE_{name}_진단보고서.md", mime="text/markdown",
             key=f"rep_{row.get('brand_id')}",
             help="결재·회람에 그대로 붙일 수 있는 형식입니다. 사용 범위 고지가 함께 들어갑니다.")
+
+
+def _model_factors_html(row: pd.Series) -> str:
+    """모형이 이 확률을 낼 때 가장 크게 본 요인 3개 — **방향과 함께**.
+
+    진단 소견(규칙)은 '무엇이 나쁜가'를 말하고, 이 카드는 '모형이 무엇을 보고 그 숫자를
+    냈는가'를 말한다. 둘이 같은 방향이면 설명이 단단하고, 다르면 심사역이 따져 볼 지점이다.
+
+    ⚠️ 방향을 빼면 오독한다. 상위 요인의 40~48%는 위험을 **낮추는** 쪽이다(실측) —
+       "계약종료 백분위가 1위 요인"은 위험을 올렸다는 뜻일 수도, 내렸다는 뜻일 수도 있다.
+       기여도(SHAP)는 로그오즈 단위라 확률 %p 로 옮기지 않고 상대 크기만 막대로 보인다.
+    ⚠️ 악화 발생 브랜드는 학습 표본 밖이라 이 요인에도 성능 근거가 없다 — 그 사실을 붙인다.
+    """
+    items = []
+    for i in (1, 2, 3):
+        name, val = row.get(f"factor{i}"), row.get(f"factor{i}_shap")
+        v = pd.to_numeric(pd.Series([val]), errors="coerce").iloc[0]
+        if name is None or str(name) in ("", "nan") or pd.isna(v):
+            continue
+        items.append((str(name), float(v)))
+    if not items:
+        return ""
+    top = max(abs(v) for _, v in items) or 1.0
+    rows = []
+    for name, v in items:
+        up = v > 0
+        col = theme.DANGER if up else theme.SAFE
+        fill = theme.DANGER_FILL if up else theme.SAFE_FILL
+        rows.append(
+            f"<div style='padding:6px 0'>"
+            f"<div style='display:flex;gap:8px;align-items:baseline'>"
+            f"<span style='font-weight:700;color:{col};font-size:{theme.FS_SM};min-width:66px'>"
+            f"{'▲ 위험 높임' if up else '▼ 위험 낮춤'}</span>"
+            f"<span style='color:{theme.INK};font-weight:600'>{C.esc(name)}</span></div>"
+            f"<div style='margin:5px 0 0 74px;height:6px;border-radius:3px;background:{theme.BORDER}'>"
+            f"<div style='width:{abs(v) / top * 100:.0f}%;height:6px;border-radius:3px;background:{fill}'></div>"
+            f"</div></div>")
+    watch = str(row.get("brand_state")) == "요주의"
+    note = ("이 브랜드는 올해 이미 악화가 나타나 학습 표본 밖입니다 — 요인도 참고용입니다."
+            if watch else "막대는 요인 간 상대 크기입니다(SHAP 기여도).")
+    return (f"<div style='padding:14px 16px;border-radius:{theme.RADIUS_LG};background:{theme.SURFACE};"
+            f"border:1px solid {theme.BORDER};box-shadow:var(--shadow-1)'>"
+            f"<div style='font-size:{theme.FS_XS};font-weight:700;letter-spacing:.06em;"
+            f"color:{theme.TEXT_MUTED};margin-bottom:4px'>모형이 이 확률을 낼 때 본 요인</div>"
+            f"{''.join(rows)}"
+            f"<div style='margin-top:8px;padding-top:8px;border-top:1px solid {theme.BORDER};"
+            f"font-size:{theme.FS_SM};color:{theme.TEXT_SUB}'>{note}</div></div>")
 
 
 def _tab_trend(brand_id: str) -> None:

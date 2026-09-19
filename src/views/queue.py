@@ -72,22 +72,69 @@ def _save_state() -> None:
         pass          # 쓰기 불가 환경(읽기전용 배포)에서도 화면은 계속 동작해야 한다
 
 
-def _on_edit(bid: str, brand_name: str) -> None:
+_LOG_KEY = "queue_log"
+_LOG_FILE = "queue_log.jsonl"
+_FIELD_KR = {"status": "처리상태", "owner": "담당자", "note": "확인 결과 메모"}
+
+
+def _log() -> list[dict]:
+    """변경 이력 — 덮어쓰지 않고 **덧붙이기만** 한다 (감사 추적).
+
+    처리상태·담당·메모의 '현재 값'만 남기면, 누가 언제 '이상 없음'으로 바꿨는지, 그때 이 브랜드의
+    등급이 무엇이었는지를 나중에 설명할 수 없다. 여신 사후관리 기록은 결과보다 **경위**가 중요하다.
+    """
+    if _LOG_KEY not in st.session_state:
+        rows: list[dict] = []
+        if store_mode() == "file":
+            p = C.out_dir() / _LOG_FILE
+            try:
+                rows = [json.loads(ln) for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            except (OSError, ValueError):
+                rows = []
+        st.session_state[_LOG_KEY] = rows
+    return st.session_state[_LOG_KEY]
+
+
+def _append_log(entries: list[dict]) -> None:
+    _log().extend(entries)
+    if store_mode() != "file":
+        return
+    try:
+        p = C.out_dir() / _LOG_FILE
+        with p.open("a", encoding="utf-8") as fh:
+            for e in entries:
+                fh.write(json.dumps(e, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def _on_edit(bid: str, brand_name: str, snapshot: dict | None = None) -> None:
     """카드 입력이 바뀌는 **즉시** 기록한다 (위젯 콜백은 화면을 다시 그리기 전에 돈다).
 
     ⚠️ 예전에는 카드를 그리는 도중에 이전 값과 비교해 저장했다. 그런데 상단 KPI 는 그보다
        먼저 계산되므로 상태를 바꿔도 숫자가 한 박자 늦게 따라왔다. 콜백으로 옮기면 KPI 가
        방금 바꾼 상태를 바로 반영한다.
+    snapshot: 바꾸는 시점의 등급·위험·상태 — 변경 이력에 함께 남긴다.
     """
     state = _state()
-    state[bid] = {
+    before = state.get(bid, {})
+    now = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    after = {
         "status": st.session_state.get(f"st_{bid}", "미착수"),
         "owner": st.session_state.get(f"own_{bid}", ""),
         "note": st.session_state.get(f"nt_{bid}", ""),
-        "brand_name": brand_name,
-        "updated": datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M"),
     }
+    changes = []
+    for k, v in after.items():
+        old = before.get(k, "미착수" if k == "status" else "")
+        if v != old:
+            changes.append({"시각": now, "브랜드ID": bid, "브랜드": brand_name, "항목": _FIELD_KR[k],
+                            "이전": old, "변경": v, "변경자": after["owner"] or "(미지정)",
+                            **(snapshot or {})})
+    state[bid] = {**after, "brand_name": brand_name, "updated": now[:16]}
     _save_state()
+    if changes:
+        _append_log(changes)
 
 
 def render() -> None:
@@ -190,6 +237,12 @@ def _worklist(work: pd.DataFrame) -> None:
         name = str(r["brand_name"])
         cur = state.get(bid, {})
         status_now = cur.get("status", "미착수")
+        # 바꾸는 시점의 판단 근거 — 변경 이력에 함께 남긴다 (나중에 "왜 그때 이상 없음이었나"에 답하려고)
+        snap = {"당시 등급": C.GRADE_KR.get(str(r["risk_grade"]), str(r["risk_grade"])),
+                "당시 브랜드 상태": C.state_label(r.get("brand_state"), r.get("n_events_at_t")),
+                "당시 1년 내 악화 위험(%)": round(float(r.get("_risk", 0.0)) * 100, 1),
+                "당시 중대 신호": str(r.get("중대 신호") or ""),
+                "기준 공시연도": str(C.scored_year())}
         with st.container(border=True):
             a, b = st.columns([3, 1.5])
             with a:
@@ -218,12 +271,12 @@ def _worklist(work: pd.DataFrame) -> None:
                     st.markdown(C.critical_banner_html(crit_items), unsafe_allow_html=True)
             with b:
                 st.text_input("담당자", value=cur.get("owner", ""), key=f"own_{bid}",
-                              placeholder="이름 입력", on_change=_on_edit, args=(bid, name))
+                              placeholder="이름 입력", on_change=_on_edit, args=(bid, name, snap))
                 st.selectbox("처리상태", STATUS, index=STATUS.index(status_now),
-                             key=f"st_{bid}", on_change=_on_edit, args=(bid, name))
+                             key=f"st_{bid}", on_change=_on_edit, args=(bid, name, snap))
             st.text_input("확인 결과 메모", value=cur.get("note", ""), key=f"nt_{bid}",
                           placeholder="예: 본부 재무자료 징구 완료, 자본잠식 아님",
-                          on_change=_on_edit, args=(bid, name))
+                          on_change=_on_edit, args=(bid, name, snap))
 
 
 def _export_frame(work: pd.DataFrame, state: dict) -> pd.DataFrame:
@@ -301,6 +354,18 @@ def _fulltable(work: pd.DataFrame, yr) -> None:
          ).to_csv(index=False).encode("utf-8-sig"),
         file_name=f"franscore_처리기록_{yr}.csv", mime="text/csv",
         disabled=log.empty, use_container_width=True)
+
+    hist = pd.DataFrame(_log())
+    with st.expander(f"변경 이력 {len(hist):,}건 — 누가·언제·무엇을·당시 등급", expanded=False):
+        if hist.empty:
+            st.caption("아직 변경 이력이 없습니다. 담당자·처리상태·메모를 바꾸면 여기에 쌓입니다.")
+        else:
+            st.dataframe(hist.iloc[::-1].head(200), hide_index=True, use_container_width=True)
+            st.download_button(
+                "변경 이력 내려받기 (CSV)", hist.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"franscore_변경이력_{yr}.csv", mime="text/csv", on_click="ignore")
+        st.caption("이력은 덧붙이기만 하고 고치지 않습니다. 은행 내부 도입 시에는 이 기록을 "
+                   "사용자 인증과 묶어 업무 DB 에 남깁니다.")
 
 
 def _excel(df: pd.DataFrame) -> tuple[bytes, str, str]:
