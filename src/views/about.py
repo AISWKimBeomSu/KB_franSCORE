@@ -308,16 +308,20 @@ def _scope_caption() -> str:
        갈라진다 — 세는 편이 짧다.
     """
     pnl = C.load_panel()
-    if pnl is None or "eligible_t" not in pnl.columns:
+    df, meta = C.load_scores()
+    if pnl is None or df is None or df.empty:
         return ""
     yr = int(pnl["year"].max())
     d = pnl[pnl["year"] == yr]
-    el = d["eligible_t"].fillna(False).astype(bool)
+    el = d["brand_id"].astype(str).isin(set(df["brand_id"].astype(str)))   # 실제로 평가된 브랜드
     w = pd.to_numeric(d["n_stores"], errors="coerce").fillna(0)
     if not el.any() or w.sum() <= 0:
         return ""
+    nb = int(meta.get("n_bridged") or 0)
+    bridge = (f" 이 가운데 {nb:,}개는 공정위 통계에 한 해가 비어 조건을 못 채웠지만 다른 공식 기록으로 "
+              "이력을 확인해 평가했습니다." if nb else "")
     return (f"평가 대상은 {yr}년 실적 기준 외식 프랜차이즈 {len(d):,}개 브랜드 가운데 "
-            f"{int(el.sum()):,}개입니다 — 가맹점 30개 이상·3년 연속 공시가 조건입니다. "
+            f"{int(el.sum()):,}개입니다 — 가맹점 30개 이상·3년 연속 공시가 조건입니다.{bridge} "
             f"브랜드 수로는 {100 * el.mean():.1f}% 지만 가맹점 수로 보면 "
             f"{100 * w[el].sum() / w.sum():.1f}% 로, 여신이 실제로 나가는 쪽은 대부분 "
             f"평가 대상 안에 있습니다.")

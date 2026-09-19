@@ -256,7 +256,7 @@ def r_store_decline(ctx: Ctx) -> Finding | None:
         title="가맹점이 줄었습니다",
         detail=(f"{ctx.year}년 가맹점이 {int(prev_n):,}개에서 {int(cur_n):,}개로 "
                 f"{int(prev_n - cur_n):,}개({signed_pct(g)}) 줄었습니다.{cmp_txt}"),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"prev": prev_n, "cur": cur_n, "growth": g, "industry_median": ind_g})
 
 
@@ -275,7 +275,7 @@ def r_store_decline_streak(ctx: Ctx) -> Finding | None:
         detail=(f"가맹점 수가 {int(first['year'])}년 {int(a):,}개에서 {ctx.year}년 "
                 f"{int(b):,}개까지 {n}년 내리 줄었습니다(누적 {signed_pct(b / a - 1)}). "
                 "한 해 부진이 아니라 추세로 굳어진 상태입니다."),
-        source=f"공정거래위원회 가맹사업 공시 {int(first['year'])}~{ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({int(first['year'])}~{ctx.year}년 실적)",
         evidence={"years": n, "from": a, "to": b})
 
 
@@ -291,7 +291,7 @@ def r_store_growth(ctx: Ctx) -> Finding | None:
         title="가맹점이 늘고 있습니다",
         detail=(f"{ctx.year}년 가맹점이 {signed_pct(g)} 늘어 "
                 f"{int(ctx.g('n_stores')):,}개가 되었습니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"growth": g})
 
 
@@ -315,7 +315,7 @@ def r_new_open_stall(ctx: Ctx) -> Finding | None:
         detail=(f"신규 개점이 전년 {int(new_p):,}개에서 {int(new_c):,}개로 줄었습니다"
                 f"(기존 점포 대비 {pct(rate)}). 새로 들어오려는 점주가 끊기면 "
                 "기존 점포의 이탈을 메울 방법이 없습니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"new_prev": new_p, "new_cur": new_c, "rate": rate})
 
 
@@ -351,7 +351,7 @@ def r_contract_end_high(ctx: Ctx) -> Finding | None:
         title="계약을 끝내는 가맹점이 많습니다",
         detail=(f"{ctx.year}년에 계약이 끝난 가맹점이 {int(end):,}개로, 연초 점포의 "
                 f"{pct(rate)}입니다.{rank_txt}{med_txt}"),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"n_end": end, "rate": rate, "pctile": p, "industry_median": med})
 
 
@@ -373,7 +373,7 @@ def r_cancel_high(ctx: Ctx) -> Finding | None:
         detail=(f"계약 기간을 채우지 못하고 중도 해지한 가맹점이 {int(cancel):,}개"
                 f"({pct(rate)})입니다. 만기 종료와 달리 중도 해지는 점주가 손실을 "
                 "감수하고 나가는 것이라 수익성 악화 신호로 봅니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"n_cancel": cancel, "rate": rate})
 
 
@@ -392,7 +392,7 @@ def r_churn_exceeds_open(ctx: Ctx) -> Finding | None:
         title="나가는 점포가 들어오는 점포보다 많습니다",
         detail=(f"{ctx.year}년 신규 개점 {int(new):,}개에 견줘 계약종료·해지가 "
                 f"{int(out):,}개로 {int(gap):,}개 더 많습니다. 순유출 상태입니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"n_new": new, "n_out": out, "gap": gap})
 
 
@@ -412,7 +412,7 @@ def r_name_change_high(ctx: Ctx) -> Finding | None:
         title="점주 교체가 잦습니다",
         detail=(f"명의변경이 {int(chg):,}건({pct(rate)})입니다. 점포는 유지되지만 "
                 "운영자가 바뀌는 것으로, 폐점 직전 단계에서 자주 나타납니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"n_name_change": chg, "rate": rate})
 
 
@@ -437,7 +437,7 @@ def r_sales_decline(ctx: Ctx) -> Finding | None:
         detail=(f"점포당 연매출이 {won(prev_s)}에서 {won(cur_s)}"
                 f"{josa(won(cur_s), '으로')} {signed_pct(g)} 줄었습니다.{cmp_txt} "
                 "매출이 줄면 점주의 대출 상환 여력이 먼저 나빠집니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"prev": prev_s, "cur": cur_s, "growth": g})
 
 
@@ -454,7 +454,7 @@ def r_sales_decline_streak(ctx: Ctx) -> Finding | None:
         title=f"매출이 {n}년 연속 하락",
         detail=(f"점포당 매출이 {int(first['year'])}년 {won(a)}에서 {ctx.year}년 "
                 f"{won(b)}까지 {n}년 내리 줄었습니다(누적 {signed_pct(b / a - 1)})."),
-        source=f"공정거래위원회 가맹사업 공시 {int(first['year'])}~{ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({int(first['year'])}~{ctx.year}년 실적)",
         evidence={"years": n, "from": a, "to": b})
 
 
@@ -473,7 +473,7 @@ def r_sales_low_rank(ctx: Ctx) -> Finding | None:
         detail=(f"점포당 매출 {won(s)}{josa(won(s))} {ctx.industry_label} 업종 하위 "
                 f"{p * 100:.0f}% 수준입니다"
                 + (f" (업종 중간값 {won(med)})." if med is not None else ".")),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"avg_sales": s, "pctile": p, "industry_median": med})
 
 
@@ -497,7 +497,7 @@ def r_sales_per_area_decline(ctx: Ctx) -> Finding | None:
         title="면적당 매출이 떨어졌습니다",
         detail=(f"3.3㎡당 매출이 {signed_pct(g)} 줄었습니다. 점포 크기를 감안해도 "
                 "장사가 덜 되고 있다는 뜻입니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"growth": g})
 
 
@@ -513,7 +513,7 @@ def r_sales_growth(ctx: Ctx) -> Finding | None:
         title="점포당 매출이 늘었습니다",
         detail=(f"점포당 연매출이 {signed_pct(g)} 늘어 {won(ctx.g('avg_sales'))}"
                 f"{josa(won(ctx.g('avg_sales')), '이')} 되었습니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"growth": g})
 
 
@@ -535,7 +535,7 @@ def r_region_concentration(ctx: Ctx) -> Finding | None:
         detail=(f"점포의 {pct(share)}가 한 시·도에 몰려 있고 진출 지역은 "
                 f"{int(nreg)}곳뿐입니다. 그 지역 상권이 흔들리면 브랜드 전체가 "
                 "동시에 흔들립니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"top_region_share": share, "n_regions": nreg})
 
 
@@ -551,7 +551,7 @@ def r_region_shrink(ctx: Ctx) -> Finding | None:
         title="진출 지역이 줄었습니다",
         detail=(f"영업 중인 시·도가 {int(prev_r)}곳에서 {int(cur_r)}곳으로 "
                 f"{int(prev_r - cur_r)}곳 줄었습니다. 특정 지역에서 통째로 철수했다는 뜻입니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"prev": prev_r, "cur": cur_r})
 
 
@@ -572,7 +572,7 @@ def r_direct_ratio_drop(ctx: Ctx) -> Finding | None:
         detail=(f"직영점 비중이 {pct(rp)}에서 {pct(rc)}로 낮아졌습니다"
                 f"({int(dp)}개 → {int(dc)}개). 본부가 직접 운영하던 점포를 정리하는 것은 "
                 "현금이 급할 때 나타나는 움직임입니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"ratio_prev": rp, "ratio_cur": rc})
 
 
@@ -585,7 +585,7 @@ def r_small_scale(ctx: Ctx) -> Finding | None:
         title="규모가 작습니다",
         detail=(f"가맹점이 {int(n):,}개로, 점포 몇 곳만 이탈해도 브랜드 지표가 "
                 "크게 흔들립니다. 충격을 흡수할 여력이 얇습니다."),
-        source=f"공정거래위원회 가맹사업 공시 {ctx.year}",
+        source=f"공정거래위원회 가맹사업 공시 ({ctx.year}년 실적)",
         evidence={"n_stores": n})
 
 
@@ -632,7 +632,8 @@ def r_startup_cost_high(ctx: Ctx) -> Finding | None:
     if p is None or p < 0.85:
         return None
     med = ind.get("startup_median")
-    lead = f"{src_year}년 공시 기준 " if src_year != ctx.year else ""
+    # 패널 연도는 실적연도이고 창업비용은 그다음 해 정보공개서에 실린 값이다(src/panel.py 규칙)
+    lead = f"{src_year + 1}년 정보공개서 기준 " if src_year != ctx.year else ""
     sales = ctx.g("avg_sales")
     payback = ""
     if sales and sales > 0:
@@ -645,7 +646,7 @@ def r_startup_cost_high(ctx: Ctx) -> Finding | None:
                 f"{ctx.industry_label} 업종 {_rank_word(p)} 수준입니다"
                 + (f" (업종 중간값 {won(med)})." if med is not None else ".")
                 + payback),
-        source=f"공정거래위원회 정보공개서 {src_year}",
+        source=f"공정거래위원회 정보공개서 {src_year + 1}년",
         evidence={"startup_total": total, "pctile": p, "industry_median": med,
                   "source_year": src_year})
 

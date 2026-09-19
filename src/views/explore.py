@@ -142,6 +142,8 @@ def _table(v: pd.DataFrame) -> pd.DataFrame:
         "가맹점 수": num("n_stores"),
         "등급": v["risk_grade"].map(C.GRADE_KR),
         "브랜드 상태": v["_state"],
+        "평가 경로": v.get("eligibility_basis", pd.Series("정규", index=v.index)).fillna("정규")
+                     .map(lambda b: "정규" if str(b) in ("정규", "", "nan") else "공시 공백 보정"),
         "브랜드 리스크(%)": v["_shown"],
         "1년 내 악화 위험(%)": v["_risk"].round(1),
         "전년 대비 가맹점(%)": num("_growth").round(1),

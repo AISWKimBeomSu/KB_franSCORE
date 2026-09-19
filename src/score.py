@@ -123,6 +123,39 @@ def _brand_state(cfg: dict, brand_ids: pd.Series,
             key.map(st["n_events"]).astype("Int64"))
 
 
+def _coverage(cfg: dict, proc: Path, panel: pd.DataFrame,
+              year: int) -> tuple[pd.DataFrame | None, set[str]]:
+    """공시 공백 보정 대상(src/coverage.py). config coverage.bridge=false 면 끈다."""
+    if not (cfg.get("coverage") or {}).get("bridge", True) or "eligible_t" not in panel.columns:
+        return None, set()
+    pf_path = proc / "panel_full.parquet"
+    if not pf_path.exists():
+        return None, set()
+    from src import coverage
+    cov = coverage.assess(cfg, pd.read_parquet(pf_path), panel, year)
+    ids = set(cov.loc[cov["status"] == coverage.STATUS_BRIDGED, "brand_id"].astype(str))
+    if ids:
+        log.info("공시 공백 보정: %d개 브랜드를 평가에 더한다 (재학습 없음 · 정규 코호트 값은 불변)",
+                 len(ids))
+    return cov, ids
+
+
+def _place_on_steps(raw_b, step_b, raw_r, step_r, smooth_r, tol: float = 1e-4) -> np.ndarray:
+    """보정 브랜드의 표시 확률 — 같은 계단에 든 정규 브랜드들 사이에 원점수로 끼워 넣는다.
+
+    정규 코호트의 펼침(smooth_calibrated)을 다시 하지 않으므로 기존 값은 한 자리도 바뀌지 않는다.
+    같은 계단의 정규 브랜드가 둘 미만이면 계단값을 그대로 쓴다.
+    """
+    out = np.asarray(step_b, dtype=float).copy()
+    raw_r, step_r, smooth_r = (np.asarray(x, dtype=float) for x in (raw_r, step_r, smooth_r))
+    for i, (rb, sb) in enumerate(zip(np.asarray(raw_b, dtype=float), out, strict=True)):
+        m = np.abs(step_r - sb) <= tol
+        if m.sum() >= 2:
+            order = np.argsort(raw_r[m], kind="stable")
+            out[i] = float(np.interp(rb, raw_r[m][order], smooth_r[m][order]))
+    return out
+
+
 def score_cohort(cfg: dict, year: int | None = None) -> tuple[pd.DataFrame, dict]:
     """지정(기본: 최신) 연도의 자격 브랜드 점수 — **파일을 쓰지 않는다**.
 
@@ -143,9 +176,11 @@ def score_cohort(cfg: dict, year: int | None = None) -> tuple[pd.DataFrame, dict
     target_year = int(year if year is not None else df["year"].max())
     cohort = df[df["year"] == target_year].copy()
     # (아래 _in_model_population 이 이 target_year 를 기준으로 모집단 소속을 표시한다)
+    cov, bridged = _coverage(cfg, proc, panel, target_year)
     if "eligible_t" in cohort.columns:
         n0 = len(cohort)
-        cohort = cohort[cohort["eligible_t"].fillna(False).astype(bool)]
+        cohort = cohort[cohort["eligible_t"].fillna(False).astype(bool)
+                        | cohort["brand_id"].astype(str).isin(bridged)]
         log.info("자격 필터: %d → %d행 (점포 %s+ 누적 & %s년 연속 — 과거 정보만 사용)",
                  n0, len(cohort), cfg["sample"]["min_stores"],
                  cfg["sample"]["min_consecutive_years"])
@@ -182,7 +217,15 @@ def score_cohort(cfg: dict, year: int | None = None) -> tuple[pd.DataFrame, dict
     # isotonic 은 계단 함수라 같은 계단에 든 브랜드가 **화면에 같은 확률로** 표시된다
     # (실측: 2,510개 중 216개가 42.86%). 계단 내부를 원점수로 선형 보간해 편다.
     # 1e-5 짜리 미세 tie-break 는 소수점 첫째 자리에서 여전히 같은 값이라 소용이 없었다.
-    p_cal = smooth_calibrated(p_raw, p_cal_step)
+    # 공시 공백 보정 브랜드(src/coverage.py)는 **정규 코호트의 보간에 끼지 않는다.** 계단 안의
+    # 펼침과 순위는 같은 계단에 든 브랜드 수에 따라 달라지므로, 끼우면 기존 브랜드의 표시 확률이
+    # 조금씩 움직인다(실측 최대 0.12%p). 정규 코호트를 먼저 펴고, 보정 브랜드는 그 위에 얹는다.
+    is_b = cohort["brand_id"].astype(str).isin(bridged).to_numpy()
+    p_cal = np.asarray(p_cal_step, dtype=float).copy()
+    p_cal[~is_b] = smooth_calibrated(p_raw[~is_b], p_cal_step[~is_b])
+    if is_b.any():
+        p_cal[is_b] = _place_on_steps(p_raw[is_b], p_cal_step[is_b], p_raw[~is_b],
+                                      p_cal_step[~is_b], p_cal[~is_b])
     # ⚠️ 보간은 계단 **양끝을 넘어설 수 있다**. 실측: 설정 하한 prob_floor(0.0003) 미만
     #    27행(정확히 0.0 이 1행). 확률 0.0 은 "절대 악화하지 않는다"는 뜻이라 어떤
     #    통계 모형도 주장할 수 없는 값이다 — 설정 한계 안으로 되돌린다.
@@ -212,7 +255,17 @@ def score_cohort(cfg: dict, year: int | None = None) -> tuple[pd.DataFrame, dict
     # 보정기가 실제로 산출한 계단값. deterioration_1y 는 이 값을 계단 안에서 편 결과이므로,
     # **감사 가능한 원본**을 함께 실어 둘을 대조할 수 있게 한다.
     res["deterioration_step"] = p_cal_step
-    res["deterioration_rank_pct"] = res["deterioration_1y"].rank(method="first", pct=True)
+    reg = ~is_b
+    res["deterioration_rank_pct"] = np.nan
+    res.loc[reg, "deterioration_rank_pct"] = res.loc[reg, "deterioration_1y"].rank(method="first", pct=True)
+    if is_b.any():                                   # 보정 브랜드: 정규 코호트 안에서의 위치
+        ref = np.sort(res.loc[reg, "deterioration_1y"].to_numpy())
+        res.loc[is_b, "deterioration_rank_pct"] = (
+            np.searchsorted(ref, res.loc[is_b, "deterioration_1y"].to_numpy(), side="right") / len(ref))
+    basis = (cov.set_index("brand_id")["basis"] if cov is not None and not cov.empty
+             else pd.Series(dtype=object))
+    res["eligibility_basis"] = [basis.get(b, "") if f else "정규"
+                                for b, f in zip(res["brand_id"].astype(str), is_b, strict=True)]
     res["brand_state"], res["n_events_at_t"] = _brand_state(
         cfg, res["brand_id"], target_year)
     # 모델이 실제로 학습·검증한 모집단 = 건전 상태 브랜드
@@ -290,7 +343,7 @@ def score_cohort(cfg: dict, year: int | None = None) -> tuple[pd.DataFrame, dict
              res.loc[high_mask, "brand_state"].value_counts().to_dict())
 
     res = res.sort_values("deterioration_1y", ascending=False).reset_index(drop=True)
-    return res, {"target_year": target_year, "cal": cal}
+    return res, {"target_year": target_year, "cal": cal, "coverage": cov}
 
 
 def score_latest(cfg: dict, year: int | None = None) -> pd.DataFrame:
@@ -298,12 +351,17 @@ def score_latest(cfg: dict, year: int | None = None) -> pd.DataFrame:
     out_dir = Path(cfg["paths"]["outputs"])
     res, info = score_cohort(cfg, year)
     target_year, cal = info["target_year"], info["cal"]
+    if info.get("coverage") is not None:
+        from src import coverage
+        coverage.write_report(cfg, info["coverage"], target_year)
     dest = out_dir / "scores_latest.csv"
     res.to_csv(dest, index=False, encoding="utf-8-sig")
 
     meta = {
         "scored_year": target_year,
         "n_scored": len(res),
+        "n_regular": int((res["eligibility_basis"] == "정규").sum()),
+        "n_bridged": int((res["eligibility_basis"] != "정규").sum()),
         "model_file": "model_lgbm.txt",
         "calibration_method": str(cal.get("method")),
         "calibration_fitted_on": str(cal.get("fitted_on", "valid")),
@@ -329,7 +387,7 @@ def score_latest(cfg: dict, year: int | None = None) -> pd.DataFrame:
 
 HISTORY_COLS = ["brand_id", "year", "brand_name", "industry_mid", "n_stores", "grade",
                 "risk_grade", "deterioration_step", "deterioration_1y", "brand_state",
-                "n_events_at_t"]
+                "n_events_at_t", "eligibility_basis"]
 HISTORY_BASIS = {"valid": "모형 선택 연도 — 조기종료가 이 해 라벨을 봤다",
                  "test": "시점 밖 — 모형이 보지 않은 연도",
                  "latest": "운영 등급 — 라벨 미확정"}

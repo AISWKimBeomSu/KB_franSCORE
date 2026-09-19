@@ -142,7 +142,7 @@ def test_template_is_real_brands_with_example_amounts(scores):
 def matched(scores, all_brands) -> pd.DataFrame:
     raw = ("brand_id,브랜드명,잔액(백만원)\n"
            "BRD_20090100502,,100\n,빽다방,100\n,메가커피,100\n,국수나무,100\n"
-           ",컴포즈커피,100\n,빽다빵,100\n,비비큐,100\n,국수나무,50\n")
+           ",컴포즈커피,100\n,빽다빵,100\n,크린토피아,100\n,국수나무,50\n")
     return lb.match_book(lb.read_book("b.csv", _csv(raw)), scores, all_brands=all_brands)
 
 
@@ -156,7 +156,7 @@ def test_match_statuses_follow_search_rules(matched, all_brands):
     assert got["컴포즈커피"] == (lb.MATCH_CHECK, "유사 일치")        # 후보가 하나여도 확정하지 않는다
     assert got["빽다빵"] == (lb.MATCH_NONE, "공시에 없음")
     if all_brands is not None:
-        assert got["비비큐"] == (lb.MATCH_NONE, "평가 대상 아님")
+        assert got["크린토피아"] == (lb.MATCH_NONE, "평가 대상 아님")
     mega = matched[matched["brand_input"] == "메가커피"].iloc[0]
     assert mega["brand_name"].startswith("메가엠지씨커피")
     dup = matched[matched["brand_input"] == "국수나무"].iloc[0]

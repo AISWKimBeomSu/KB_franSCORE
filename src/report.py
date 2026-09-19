@@ -863,6 +863,9 @@ def _summary(ctx: dict, grade: str | None, cuts: list[float], crit: list[dict]) 
     p_txt = f"{p:.1f}<small>%</small>" if p is not None else "—"
     caveat = {"요주의": " · 악화 발생 구간 — 이 확률값은 성능 근거 없음",
               "평가불가": " · 평가불가 — 신뢰할 수 없음"}.get(state, "")
+    basis = str(b.get("eligibility_basis") or "")
+    if basis and basis not in ("정규", "nan"):      # src/coverage.py — 공시 공백 보정 브랜드
+        caveat += f" · 공시 공백 보정 평가({_e(basis)}) — 과거 검증 표본 밖"
     st_val, st_sub, st_sentence = _state_texts(ctx)
     grade_v = (f"{grade} <small>{GRADE_LABEL[grade]}</small>" if grade in GRADE_LABEL else "—")
     # MODEL_USE_SPEC §4: 밴드는 실현율과 함께만 적는다. 컷을 고른 자료 위의 실적(pooled)이 아니라
@@ -1266,7 +1269,8 @@ def _basis_html(ctx: dict, grade: str | None, cuts: list[float]) -> str:
     hq_src = hq.get("source_label") if hq.get("matched") else None
     demand = ctx.get("demand")
     srcs = [
-        f"공정거래위원회 가맹사업 공시(정보공개서){f' — {yr}년 기준' if yr else ''}: 가맹점 수·신규개점·계약종료·"
+        "공정거래위원회 가맹사업 공시(정보공개서)"
+        + (f" — {yr}년 실적 기준({yr + 1}년 정보공개서)" if yr else "") + ": 가맹점 수·신규개점·계약종료·"
         "계약해지·명의변경·평균매출·지역 분포",
         "가맹본부 재무: " + (_e(hq_src) if hq_src else
                            "금융감독원 전자공시(DART) 감사보고서 · 공정거래위원회 정보공개서 열람분")

@@ -157,6 +157,7 @@ def screen(df: pd.DataFrame, brand_col: str, ctx: Context,
                 "가맹점 수": pd.to_numeric(r.get("n_stores"), errors="coerce"),
                 "등급": f"{g} {guidance.GRADE_LABEL.get(g, '')}" if g else "",
                 "브랜드 상태": _state(r),
+                "평가 경로": _basis(r),
                 "브랜드 리스크(%)": grading.display_pct(r.get("deterioration_1y"), cuts),
                 "1년 내 악화 위험(%)": round(grading.priority_risk(r, rates) * 100, 1),
                 "중대 신호": " · ".join(str(x.get("title") or x.get("code")) for x in crit),
@@ -173,6 +174,12 @@ def screen(df: pd.DataFrame, brand_col: str, ctx: Context,
     if amount_col and amount_col in res.columns:
         res[amount_col] = pd.to_numeric(res[amount_col], errors="coerce")
     return res
+
+
+def _basis(r) -> str:
+    """정규 평가인지, 공시 공백 보정(src/coverage.py)으로 평가됐는지."""
+    b = str(r.get("eligibility_basis") or "")
+    return "정규" if not b or b in ("정규", "nan") else f"공시 공백 보정 — {b}"
 
 
 def _state(r) -> str:
@@ -253,10 +260,10 @@ def template_bytes() -> bytes:
     """업로드 양식 — 실제로 결과가 갈리는 예시를 담는다(정확·통칭·동명·평가 대상 아님)."""
     sample = pd.DataFrame({
         "신청번호": ["2026-0001", "2026-0002", "2026-0003", "2026-0004", "2026-0005", "2026-0006"],
-        "브랜드명": ["메가커피", "인생냉면", "달리는커피", "빽다방", "국수나무", "비비큐"],
+        "브랜드명": ["메가커피", "인생냉면", "달리는커피", "빽다방", "국수나무", "크린토피아"],
         "신청금액(백만원)": [150, 80, 120, 200, 60, 180],
         "비고": ["통칭으로 입력해도 찾습니다", "", "", "", "같은 이름의 브랜드가 둘입니다",
-                 "공시에는 있으나 평가 대상이 아닌 예"],
+                 "공시에는 있으나 외식 업종이 아니어서 평가 대상이 아닌 예"],
     })
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:

@@ -146,6 +146,29 @@ def load_panel(full: bool = False) -> pd.DataFrame | None:
     return _parquet(str(p), _mtime(p)) if p.exists() else None
 
 
+def load_coverage() -> pd.DataFrame | None:
+    """평가 범위 보고서(src/coverage.py) — 평가하지 않은 브랜드의 **정확한 사유**를 보여 줄 때 쓴다."""
+    p = out_dir() / "coverage_report.csv"
+    return _csv(str(p), _mtime(p)) if p.exists() else None
+
+
+def is_bridged(row) -> bool:
+    b = str(row.get("eligibility_basis") or "") if hasattr(row, "get") else ""
+    return bool(b) and b not in ("정규", "nan")
+
+
+def bridged_note(row) -> str:
+    """공시 공백 보정으로 평가된 브랜드 — 무엇이 비었고 무엇으로 확인했는지, 한계는 무엇인지."""
+    if not is_bridged(row):
+        return ""
+    return (f"<div style='margin-top:8px;padding:7px 10px;border-radius:{theme.RADIUS_MD};"
+            f"background:{theme.INFO_SOFT};border:1px solid #D5E2F2;font-size:{theme.FS_SM};"
+            f"color:{theme.TEXT};line-height:1.5'><b>공시 공백 보정으로 평가</b> — 공정위 가맹점 통계에 "
+            f"한 해가 비어 '3년 연속 공시' 조건을 못 채웠지만, 다른 공식 기록으로 이력을 확인했습니다"
+            f"({esc(row.get('eligibility_basis'))}). 3년 추세 지표 없이 계산했고 과거 검증 표본 밖이라, "
+            f"등급을 진단 소견과 함께 보십시오.</div>")
+
+
 def load_hq_financials() -> pd.DataFrame | None:
     p = proc_dir() / "hq_financials.parquet"
     return _parquet(str(p), _mtime(p)) if p.exists() else None
@@ -728,7 +751,7 @@ def diagnosis_report(row, findings: pd.DataFrame | None,
          f"- **브랜드 상태** {state}",
          f"- **업종** {row.get('industry_major', '-')} · {row.get('industry_mid', '-')}",
          f"- **가맹점 수** {_int0(row.get('n_stores')):,}개",
-         f"- **기준** {yr}년 공정거래위원회 가맹사업 공시 · 산출 {when}", ""]
+         f"- **기준** {grading.year_label(yr)} (공정거래위원회 가맹사업 공시) · 산출 {when}", ""]
 
     if b.get("pooled"):
         L += ["## 등급의 의미", "",
@@ -884,6 +907,10 @@ def population_note(row) -> str:
        내년에도 나쁠 확률'이고, 그 값은 모형 없이도 셀 수 있다. 라벨 표본이 없을 뿐
        상태 전이는 패널에 그대로 있기 때문이다. 그래서 이제 실현율을 함께 준다.
     """
+    return bridged_note(row) + _state_note(row)
+
+
+def _state_note(row) -> str:
     state = str(row.get("brand_state") or "") if hasattr(row, "get") else ""
     if state == "건전":
         return (f"<div style='margin-top:8px;font-size:{theme.FS_SM};color:{theme.TEXT_MUTED}'>"

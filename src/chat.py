@@ -289,6 +289,9 @@ def brand_facts(cfg: dict, brand_name: str) -> dict:
         "전체중_상위": f"{(1 - float(r['deterioration_rank_pct'])) * 100:.1f}%"
         if pd.notna(r.get("deterioration_rank_pct")) else None,
     })
+    basis = str(r.get("eligibility_basis") or "")
+    if basis and basis not in ("정규", "nan"):       # 공시 공백 보정 브랜드 — 한계를 함께 넘긴다
+        out["평가경로"] = f"공시 공백 보정({basis}) — 3년 추세 지표 없이 계산, 과거 검증 표본 밖"
 
     fp = out_dir / "brand_diagnosis.parquet"
     if fp.exists():
@@ -604,6 +607,8 @@ def _fallback(facts: list[dict], evidence: list[dict], question: str,
         n = f.get("가맹점수")
         parts.append(f"- 업종 {f.get('업종')} · 가맹점 {f'{n:,}' if n else '-'}개"
                      + (f" · 가맹본부 {f['가맹본부']}" if f.get("가맹본부") else ""))
+        if f.get("평가경로"):
+            parts.append(f"- 평가 경로: {f['평가경로']}")
         risks = [s for s in (f.get("진단소견") or f.get("관련_소견") or [])
                  if s.get("구분") == "risk"][:5]
         if risks:

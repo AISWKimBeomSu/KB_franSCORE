@@ -1,7 +1,7 @@
 """일괄 조회 — 예시 양식이 실제로 약속한 대로 갈리는지.
 
 양식의 여섯 줄은 매칭 규칙을 하나씩 보여 주려고 고른 것이다: 통칭(메가커피), 정확 일치,
-동명 브랜드(국수나무), 공시에는 있으나 평가 대상이 아닌 브랜드(비비큐).
+동명 브랜드(국수나무), 공시에는 있으나 평가 대상이 아닌 브랜드(크린토피아).
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def test_each_template_row_lands_in_the_promised_status(result):
     assert status["인생냉면"] == batch.MATCH_EXACT
     assert status["빽다방"] == batch.MATCH_EXACT
     assert status["국수나무"] == batch.MATCH_SAME_NAME
-    assert status["비비큐"] == batch.MATCH_NOT_SCORED
+    assert status["크린토피아"] == batch.MATCH_NOT_SCORED
 
 
 def test_input_order_and_columns_are_preserved(result):
@@ -51,7 +51,7 @@ def test_input_order_and_columns_are_preserved(result):
 
 
 def test_unscored_rows_carry_no_grade(result):
-    row = result[result["브랜드명"] == "비비큐"].iloc[0]
+    row = result[result["브랜드명"] == "크린토피아"].iloc[0]
     assert not str(row.get("등급") or "").strip() or str(row.get("등급")) == "nan"
 
 

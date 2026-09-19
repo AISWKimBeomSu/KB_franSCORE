@@ -1,15 +1,17 @@
 {
   "scored_year": 2024,
-  "n_scored": 1442,
+  "n_scored": 1521,
+  "n_regular": 1442,
+  "n_bridged": 79,
   "model_file": "model_lgbm.txt",
   "calibration_method": "isotonic",
   "calibration_fitted_on": "valid",
   "prob_floor": 0.0003,
   "prob_cap": 0.99,
   "grade_counts": {
-    "Medium": 632,
-    "Low": 444,
-    "High": 366
+    "Medium": 667,
+    "Low": 466,
+    "High": 388
   },
   "deterioration_min": 0.0011991465252465128,
   "deterioration_max": 0.35570530763847774,

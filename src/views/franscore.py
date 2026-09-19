@@ -143,16 +143,37 @@ def _not_found(q: str, near: list[str]) -> None:
     st.warning(f"'{q}' 로 평가된 브랜드를 찾지 못했습니다.")
     if near:
         st.caption("혹시 이것을 찾으셨나요? " + " · ".join(near))
+    # 평가하지 않은 이유는 브랜드마다 다르다 — 한 문장으로 뭉뚱그리면 틀린다.
+    # (예전 문구 "3년 연속 관측과 규모가 필요"는 가맹점 2,316개인 BBQ 에도 떴다. 실제 이유는
+    #  공정위 통계의 한 해 공백이었다 — src/coverage.py)
+    cov = C.load_coverage()
+    if cov is not None and not cov.empty:
+        miss = cov[cov["status"] != "평가"]
+        h1, _ = search(miss.assign(n_stores=pd.to_numeric(miss["n_stores"], errors="coerce")), q, limit=3)
+        if not h1.empty:
+            lines = [f"- **{C.esc(r['brand_name'])}** (가맹점 {int(r['n_stores']):,}개) — {C.esc(r['reason'])}"
+                     if pd.notna(r["n_stores"]) else f"- **{C.esc(r['brand_name'])}** — {C.esc(r['reason'])}"
+                     for _, r in h1.iterrows()]
+            st.info("**공시에는 있지만 평가하지 않은 브랜드입니다.**\n\n" + "\n".join(lines))
+            return
     panel = C.load_panel(full=True)
     if panel is None:
         return
-    allb = panel[["brand_name", "industry_major", "year", "n_stores"]] \
-        .drop_duplicates("brand_name")
+    allb = (panel.sort_values("year")[["brand_name", "industry_major", "year", "n_stores"]]
+            .drop_duplicates("brand_name", keep="last"))
     h2, _ = search(allb, q)
     if not h2.empty:
-        st.info("**공시 데이터에는 있지만 평가 대상이 아닙니다.** 추세를 계산하려면 "
-                "최근 3년 연속 관측과 일정 규모가 필요합니다.\n\n공시 기록: "
-                + ", ".join(h2["brand_name"].astype(str).head(5)))
+        yr = int(panel["year"].max())
+        lines = []
+        for _, r in h2.head(3).iterrows():
+            if str(r["industry_major"]) != "외식":
+                why = f"외식이 아닌 '{C.esc(r['industry_major'])}' 업종이라 평가 범위 밖입니다"
+            elif int(r["year"]) < yr:
+                why = f"마지막 공시가 {int(r['year'])}년 실적이라 최신 평가에 들지 않았습니다"
+            else:
+                why = "평가 조건(가맹점 30개 이상·3년 연속 공시)을 채우지 못했습니다"
+            lines.append(f"- **{C.esc(r['brand_name'])}** — {why}")
+        st.info("**공시에는 있지만 평가하지 않은 브랜드입니다.**\n\n" + "\n".join(lines))
     else:
         st.info("**공시 데이터 자체에 없습니다.** 직영으로만 운영하는 브랜드는 "
                 "가맹사업이 아니어서 공정거래위원회 공시 대상이 아닙니다.")
