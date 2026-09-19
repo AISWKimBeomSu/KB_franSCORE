@@ -656,7 +656,7 @@ def section_cards_html(brand_id: str, industry_mid: str | None = None) -> str:
             f"{sub}</div>{''.join(lines)}</div>")
     return ("".join(blocks) +
             f"<div style='color:{theme.TEXT_MUTED};font-size:{theme.FS_XS};margin-top:4px'>"
-            f"비교 기준: {peer_label} · {year}년 공시. 부문에 점수를 매기지 않습니다 — "
+            f"비교 기준: {peer_label} · {year}년 실적. 부문에 점수를 매기지 않습니다 — "
             f"여러 지표를 하나로 합치려면 가중치가 필요한데 그 가중치를 정당화할 근거가 "
             f"없습니다. 관측값과 업종 내 위치만 보여드립니다.</div>")
 

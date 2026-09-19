@@ -16,6 +16,20 @@ from pathlib import Path
 import pandas as pd
 
 GRADE_ORDER = {"High": 0, "Medium": 1, "Low": 2}
+
+
+def year_label(year, *, short: bool = False) -> str:
+    """패널 연도 표기 — '2024년 실적 · 2025년 정보공개서'.
+
+    패널 연도는 **실적연도**다(정보공개서 기준연도 − 1, src/panel.py 상단 규칙). 예전 화면은
+    이 값을 '2024년 공시'로 적었다. 실무자가 그 말대로 2024년 정보공개서(2023년 실적)를 열면
+    가맹점 수가 1년씩 어긋난다(메가MGC커피: 패널 2024 = 3,325개 = 2024년 말).
+    """
+    try:
+        y = int(float(year))
+    except (TypeError, ValueError):
+        return "-"
+    return f"{y}년 실적" if short else f"{y}년 실적 · {y + 1}년 정보공개서"
 GRADE_KR = {"High": "주의", "Medium": "관찰", "Low": "안정"}
 
 _CACHE: dict[tuple[str, float], object] = {}

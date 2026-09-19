@@ -27,7 +27,7 @@ def render() -> None:
         return
     theme.page_header(
         "브랜드 탐색·비교",
-        f"{meta.get('scored_year', '-')}년 공시 기준 {len(df):,}개 브랜드를 조건으로 거르고, "
+        f"{grading.year_label(meta.get('scored_year'))} 기준 {len(df):,}개 브랜드를 조건으로 거르고, "
         "후보 브랜드를 나란히 비교합니다. 신규 협약·신규 취급 검토에 쓰십시오.",
         eyebrow="심사")
     base = _frame(df)

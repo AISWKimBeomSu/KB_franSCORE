@@ -22,9 +22,11 @@
     지나치게 좁다. 브랜드를 통째로 뽑아 다시 계산해야 정직한 구간이 나온다.
 
 시점 정합 (point-in-time)
-    대출은 **취급 당시 볼 수 있었던 등급**에 맞춘다. 공시는 전년도 실적이라 기본값은
-    '취급연도 − 1년' 공시의 등급이다(outputs/grade_history.csv, src/score.py
-    build_grade_history). 최신 등급을 과거 대출에 붙이면 대출 이후에 나온 정보로 과거를
+    대출은 **취급 당시 볼 수 있었던 등급**에 맞춘다. 등급 이력의 연도는 실적연도다(t년 실적은
+    t+1년 정보공개서로, 빨라야 그해 중반에 공개된다). 그래서 취급 시점에 확실히 볼 수 있던
+    것은 '취급연도 − 2년' 실적의 등급이고, 이것을 기본값으로 둔다(outputs/grade_history.csv,
+    src/score.py build_grade_history). 하반기 취급이 대부분이고 공개 시점을 확인했다면
+    '− 1년'을 고를 수 있다. 최신 등급을 과거 대출에 붙이면 대출 이후에 나온 정보로 과거를
     설명하는 셈이라 결과가 부풀려진다. 취급일 열이 없으면 최신 등급을 쓰되 그 한계를 표시한다.
 
     브랜드 매칭도 **이력 전체**(과거에 평가됐던 브랜드 포함)로 한다. 최신 목록으로만 찾으면
@@ -215,7 +217,7 @@ def _match(q: str, ctx: batch.Context, names: pd.DataFrame,
     return m
 
 
-def prepare(df: pd.DataFrame, cols: Columns, hist: pd.DataFrame, *, lag_years: int = 1,
+def prepare(df: pd.DataFrame, cols: Columns, hist: pd.DataFrame, *, lag_years: int = 2,
             dpd_threshold: int = 90, max_stale_years: int = 1,
             all_brands: pd.DataFrame | None = None, outputs: Path | None = None) -> Prepared:
     """업로드 표 → 검증용 대출표(취급 당시 등급 부착) + 제외 목록."""
@@ -270,8 +272,8 @@ def prepare(df: pd.DataFrame, cols: Columns, hist: pd.DataFrame, *, lag_years: i
     for i, gy in zip(joined.loc[missing, "_i"], joined.loc[missing, "grade_year"], strict=True):
         reason[i] = EXCL_PIT
         pit_detail[int(base.at[i, "row"])] = (
-            f"{int(gy)}년 공시 등급은 모형 학습 연도라 검증에 쓰지 않습니다" if gy < first_year
-            else f"{int(gy)}년에는 평가 대상이 아니었습니다")
+            f"{int(gy)}년 실적 등급은 모형 학습 연도라 검증에 쓰지 않습니다" if gy < first_year
+            else f"{int(gy)}년 실적 기준으로는 평가 대상이 아니었습니다")
     loans = (joined[~missing].drop(columns="_i").rename(columns={"deterioration_step": "risk"})
              .sort_values("row").reset_index(drop=True))
     loans["default"] = loans["default"].astype(int)
@@ -297,7 +299,7 @@ def prepare(df: pd.DataFrame, cols: Columns, hist: pd.DataFrame, *, lag_years: i
                  raw[SYNTHETIC_COLUMN].astype(str).str.contains(SYNTHETIC_MARK).any())
     notes = []
     if not pit:
-        notes.append(f"취급일 열이 없어 모든 대출에 최신({max_year}년 공시) 등급을 붙였습니다. "
+        notes.append(f"취급일 열이 없어 모든 대출에 최신({max_year}년 실적) 등급을 붙였습니다. "
                      "대출 이후에 나온 정보로 과거를 설명하게 되어 결과가 실제보다 좋게 나올 수 "
                      "있습니다 — 취급일 열을 넣어 다시 검증하십시오.")
     return Prepared(loans=loans, excluded=excl, pit=pit, lag_years=lag_years,
@@ -463,7 +465,7 @@ def evaluate(prep: Prepared, *, n_boot: int = 400, seed: int = 42, folds: int = 
     years = sorted(L["grade_year"].unique())
     by_year = pd.concat([_rate_table(L[L["grade_year"] == yv], "grade", list(GRADES),
                                      {g: f"{g} {GRADE_KR[g]}" for g in GRADES})
-                         .assign(**{"등급 기준 공시연도": int(yv)}) for yv in years],
+                         .assign(**{"등급 기준 실적연도": int(yv)}) for yv in years],
                         ignore_index=True)
 
     rates = [(y[gi == i].mean() if (gi == i).any() else np.nan) for i in range(3)]
@@ -604,7 +606,7 @@ def to_excel(res: dict, prep: Prepared, meta: dict) -> bytes:
         ("검증 대출 수", res["n"]), ("연체 수", res["defaults"]),
         ("전체 연체율(%)", round(res["rate"] * 100, 2)), ("브랜드 수", res["n_brands"]),
         ("제외 행 수", res["n_excluded"]),
-        ("등급 기준", f"취급연도 − {res['lag_years']}년 공시 등급" if res["pit"] else "최신 등급(시점 정합 아님)"),
+        ("등급 기준", f"취급연도 − {res['lag_years']}년 실적 등급" if res["pit"] else "최신 등급(시점 정합 아님)"),
         ("서열성", f"{v['rank'][0]} — {v['rank'][1]}"),
         ("추가 정보", f"{v['incremental'][0]} — {v['incremental'][1]}"),
         ("표본", f"{v['sample'][0]} — {v['sample'][1]}"),
@@ -624,7 +626,7 @@ def to_excel(res: dict, prep: Prepared, meta: dict) -> bytes:
         w.sheets["요약"].column_dimensions["B"].width = 110
         res["by_grade"].to_excel(w, index=False, sheet_name="등급별")
         res["by_state"].to_excel(w, index=False, sheet_name="브랜드 상태별")
-        res["by_year"].to_excel(w, index=False, sheet_name="공시연도별")
+        res["by_year"].to_excel(w, index=False, sheet_name="실적연도별")
         if res["strata"] is not None:
             res["strata"].to_excel(w, index=False, sheet_name="내부등급 층별")
         res["brands"].to_excel(w, index=False, sheet_name="브랜드별")
@@ -632,7 +634,7 @@ def to_excel(res: dict, prep: Prepared, meta: dict) -> bytes:
                                       "reason": "제외 사유", "detail": "상세"}).to_excel(
             w, index=False, sheet_name="제외 목록")
         notes = [
-            f"기준: 공정거래위원회 가맹사업 공시 · 등급 이력 {', '.join(map(str, res['years']))}년 · "
+            f"기준: 공정거래위원회 가맹사업 공시 · 등급 이력 {', '.join(map(str, res['years']))}년 실적 · "
             f"산출 {meta.get('generated', '-')}",
             "FranSCORE 등급은 브랜드의 공시 지표 악화 확률로 매긴 것이며 차주의 부도확률(PD)이 아닙니다.",
             "구간은 브랜드를 통째로 재표집한 군집 부트스트랩 "
@@ -680,7 +682,8 @@ def template_bytes() -> bytes:
     return buf.getvalue()
 
 
-def sample_frame(hist: pd.DataFrame, n_loans: int = 6000, seed: int = 7) -> pd.DataFrame:
+def sample_frame(hist: pd.DataFrame, n_loans: int = 6000, seed: int = 7,
+                 lag_years: int = 2) -> pd.DataFrame:
     """**가상** 시연 자료 — 화면이 어떤 결과를 내는지 보여 주기 위한 것이다.
 
     ⚠️ 이 자료는 연체 확률에 브랜드 위험을 **일부러 심어** 만든다(내부등급 효과 + 브랜드 효과 +
@@ -689,7 +692,9 @@ def sample_frame(hist: pd.DataFrame, n_loans: int = 6000, seed: int = 7) -> pd.D
        달아, 파일을 내려받아 다시 올려도 화면이 가상 자료임을 표시하게 한다.
     """
     rng = np.random.default_rng(seed)
+    # 최신 실적연도 등급으로 취급한 대출은 아직 관찰 기간(12개월)이 끝나지 않았다 — 뺀다
     years = sorted(int(v) for v in hist["year"].unique())
+    years = years[:-1] if len(years) > 1 else years
     z_all = _logit(hist["deterioration_step"].to_numpy(float))
     mu, sd = float(z_all.mean()), float(z_all.std() or 1.0)
     per = [n_loans // len(years)] * len(years)
@@ -705,8 +710,8 @@ def sample_frame(hist: pd.DataFrame, n_loans: int = 6000, seed: int = 7) -> pd.D
         internal = np.clip(np.rint(rng.normal(5 + 0.6 * zi, 2.0)), 1, 10).astype(int)
         lp = -3.75 + 0.32 * (internal - 5) + 0.45 * zi + shock[pick]
         default = rng.random(n) < 1 / (1 + np.exp(-lp))
-        oy = gy + 1
-        month = rng.integers(1, 7 if oy >= years[-1] + 1 else 13, size=n)
+        oy = gy + lag_years
+        month = rng.integers(1, 13, size=n)
         day = rng.integers(1, 29, size=n)
         amount = np.round(rng.lognormal(np.log(70), 0.5, size=n)).astype(int)
         for j in range(n):

@@ -63,6 +63,16 @@ def _is_public_demo() -> bool:
 _NAV = "nav_view"
 
 
+def _year_text(year) -> str:
+    """'2024년 실적 (2025년 공시)' — 패널 연도는 실적연도다. src.grading 의 새 함수를 부르지 않고
+    여기서 만든다: 진입 스크립트가 옛 버전 모듈과 섞여 떠도 사이드바가 죽지 않게 한다."""
+    try:
+        y = int(float(year))
+    except (TypeError, ValueError):
+        return "-"
+    return f"{y}년 실적 ({y + 1}년 공시)"
+
+
 def _sidebar() -> str:
     theme.sidebar_brand("FranSCORE", "프랜차이즈 여신 리스크")
     theme.sidebar_label("메뉴")
@@ -94,7 +104,7 @@ def _sidebar() -> str:
     if meta:
         st.sidebar.markdown(
             f"<div class='kb-navmeta'>"
-            f"기준 공시연도 <b>{meta.get('scored_year', '-')}년</b><br>"
+            f"기준 <b>{_year_text(meta.get('scored_year'))}</b><br>"
             f"평가 대상 <b>{meta.get('n_scored', 0):,}개</b> 브랜드</div>",
             unsafe_allow_html=True)
     # 고지문은 법적 성격이라 '작게 흘려두는' 문구가 아니다. 예전엔 11.2px·

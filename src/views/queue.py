@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 import pandas as pd
 import streamlit as st
 
-from src import theme
+from src import grading, theme
 from src.views import common as C
 
 STATUS = ["미착수", "검토 중", "조치 완료", "이상 없음"]
@@ -147,7 +147,7 @@ def render() -> None:
 
     theme.page_header(
         "점검 큐",
-        f"{yr}년 공시 기준으로 우선 확인이 필요한 브랜드입니다. "
+        f"{grading.year_label(yr)} 기준으로 우선 확인이 필요한 브랜드입니다. "
         "담당자를 지정하고 확인 결과를 기록하면 목록에서 정리됩니다.",
         eyebrow="업무")
 
@@ -242,7 +242,7 @@ def _worklist(work: pd.DataFrame) -> None:
                 "당시 브랜드 상태": C.state_label(r.get("brand_state"), r.get("n_events_at_t")),
                 "당시 1년 내 악화 위험(%)": round(float(r.get("_risk", 0.0)) * 100, 1),
                 "당시 중대 신호": str(r.get("중대 신호") or ""),
-                "기준 공시연도": str(C.scored_year())}
+                "기준 실적연도": str(C.scored_year())}
         with st.container(border=True):
             a, b = st.columns([3, 1.5])
             with a:

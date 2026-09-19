@@ -760,8 +760,8 @@ def _head(ctx: dict, name: str, grade: str | None, doc_id: str, gen: object) -> 
         f"<div class='subject'><span>{_e(name)}</span>{_badge(grade)}</div>"
         "<div class='rule'></div>"
         "<table class='meta'>"
-        f"<tr><th>대상 브랜드</th><td>{_e(name)}</td><th>기준 공시연도</th>"
-        f"<td>{_e(yr) + '년' if yr else '—'}</td></tr>"
+        f"<tr><th>대상 브랜드</th><td>{_e(name)}</td><th>기준 실적연도</th>"
+        f"<td>{_e(yr) + '년 (' + _e(int(yr) + 1) + '년 정보공개서)' if yr else '—'}</td></tr>"
         f"<tr><th>브랜드 ID</th><td>{_e(bid) or '—'}</td><th>작성 시각</th><td>{_e(_fmt_dt(gen))}</td></tr>"
         "<tr><th>문서 구분</th><td>참고의견서 · 내부 참고용</td><th>자료 기준</th>"
         f"<td>{'산출물 ' + _e(art) if art else '—'}</td></tr>"
@@ -786,7 +786,7 @@ def _overview(ctx: dict, name: str) -> str:
         if yr and yr >= bsy:
             start += f" (업력 {yr - bsy}년)" if yr > bsy else " (업력 1년 미만)"
     sales = _num(latest.get("avg_sales"))
-    sales_txt = (f"{_won_thousand(sales)} ({_e(latest.get('year'))}년 공시)"
+    sales_txt = (f"{_won_thousand(sales)} ({_e(latest.get('year'))}년 실적)"
                  if sales is not None else "공시에 없음")
     regions = _count(latest.get("n_regions"), "곳")
     d = ctx.get("demand")
@@ -1011,7 +1011,7 @@ def _sections_html(sec: dict | None) -> str:
             "<div class='tablewrap'><table class='grid'><thead><tr><th>지표</th><th class='num'>값</th>"
             "<th>업종 내 위치</th><th>판단</th></tr></thead>"
             f"<tbody>{''.join(body)}</tbody></table></div>"
-            f"<p class='note'>비교 기준: {_e(sec.get('peer_label'))} · {_e(sec.get('year'))}년 공시. "
+            f"<p class='note'>비교 기준: {_e(sec.get('peer_label'))} · {_e(sec.get('year'))}년 실적. "
             "부문에 점수를 매기지 않습니다 — 여러 지표를 하나로 합칠 가중치의 근거가 없어 관측값과 업종 내 "
             "위치만 싣습니다. '판단'은 업종 상·하위 30% 안에 들 때만 표시합니다.</p></section>")
 
@@ -1053,7 +1053,8 @@ def _trend_html(trend: list[dict], year: int | None) -> str:
                         for r in trend)
         body.append(f"<tr><td>{label}</td><td class='muted'>{unit}</td>{cells}</tr>")
     return (f"<section class='sec'>{head}"
-            "<p class='lead'>공정거래위원회 가맹사업 공시, 최근 연도까지. 굵은 열이 기준 공시연도입니다.</p>"
+            "<p class='lead'>공정거래위원회 가맹사업 공시, 최근 연도까지. 열은 실적연도(그다음 해 "
+            "정보공개서에 실림)이고, 굵은 열이 기준 실적연도입니다.</p>"
             f"<div class='tablewrap'><table class='grid'><thead><tr><th>지표</th><th>단위</th>{th}</tr></thead>"
             f"<tbody>{''.join(body)}</tbody></table></div>"
             "<p class='note'>종료·해지율 = (계약종료 + 계약해지) ÷ 전년 가맹점 수 — 전년 공시가 없거나 전년 점포가 "
@@ -1096,7 +1097,7 @@ def _hq_html(hq: dict | None, year: int | None) -> str:
     if zero_seen:
         notes.append("* 추출값이 정확히 0인 칸입니다 — 실제 0이 아니라 추출 누락일 수 있으니 원문으로 확인하십시오.")
     if year:
-        notes.append(f"진단 소견은 기준 공시연도 직전({year - 1}년)까지의 결산만 씁니다(시점 안전). "
+        notes.append(f"진단 소견은 기준 실적연도 직전({year - 1}년)까지의 결산만 씁니다(시점 안전). "
                      "표에는 확보된 최신 결산까지 함께 싣습니다.")
     rc = hq.get("rcept_no")
     if rc:

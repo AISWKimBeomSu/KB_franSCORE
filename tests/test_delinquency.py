@@ -109,13 +109,14 @@ HIST = _hist([
 ])
 
 
-def test_point_in_time_uses_prior_year_disclosure_grade():
+def test_point_in_time_uses_grade_visible_at_origination():
+    """기본값: 취급연도 − 2년 실적 등급 (t년 실적은 t+1년 정보공개서로 공개)."""
     df = _loans([
-        {"브랜드명": "알파치킨", "취급일": "2023-06-01", "연체여부": "N"},   # → 2022 FS1
-        {"브랜드명": "알파치킨", "취급일": "2024-02-01", "연체여부": "Y"},   # → 2023 FS3
-        {"브랜드명": "알파치킨", "취급일": "2022-03-01", "연체여부": "N"},   # → 2021: 이력 이전
-        {"브랜드명": "베타커피", "취급일": "2023-09-09", "연체여부": "N"},   # → 2022: 평가 전
-        {"브랜드명": "알파치킨", "취급일": "2026-01-01", "연체여부": "N"},   # → 2025: 2024 사용(1년 이내)
+        {"브랜드명": "알파치킨", "취급일": "2024-06-01", "연체여부": "N"},   # → 2022 FS1
+        {"브랜드명": "알파치킨", "취급일": "2025-02-01", "연체여부": "Y"},   # → 2023 FS3
+        {"브랜드명": "알파치킨", "취급일": "2023-03-01", "연체여부": "N"},   # → 2021: 학습 연도
+        {"브랜드명": "베타커피", "취급일": "2024-09-09", "연체여부": "N"},   # → 2022: 평가 전
+        {"브랜드명": "알파치킨", "취급일": "2027-01-01", "연체여부": "N"},   # → 2025: 2024 사용(1년 이내)
     ])
     prep = D.prepare(df, D.detect_columns(df), HIST)
     got = dict(zip(prep.loans["row"], prep.loans["grade"], strict=True))
@@ -126,10 +127,11 @@ def test_point_in_time_uses_prior_year_disclosure_grade():
     assert prep.pit and not prep.notes
 
 
-def test_same_year_option_and_no_date_fallback_is_flagged():
-    df = _loans([{"브랜드명": "알파치킨", "취급일": "2023-06-01", "연체여부": "N"}])
-    same = D.prepare(df, D.detect_columns(df), HIST, lag_years=0)
-    assert same.loans["grade"].tolist() == ["FS3"]                 # 2023 공시
+def test_one_year_option_and_no_date_fallback_is_flagged():
+    df = _loans([{"브랜드명": "알파치킨", "취급일": "2024-06-01", "연체여부": "N"}])
+    assert D.prepare(df, D.detect_columns(df), HIST).loans["grade"].tolist() == ["FS1"]      # 2022
+    one = D.prepare(df, D.detect_columns(df), HIST, lag_years=1)
+    assert one.loans["grade"].tolist() == ["FS3"]                  # 2023 실적
     nodate = df.drop(columns="취급일")
     p = D.prepare(nodate, D.detect_columns(nodate), HIST)
     assert not p.pit and p.loans["grade"].tolist() == ["FS3"]      # 최신(2024)
@@ -137,17 +139,17 @@ def test_same_year_option_and_no_date_fallback_is_flagged():
 
 
 def test_disappeared_brand_is_still_matched_no_survivorship():
-    """2024년에 없는 브랜드도 과거 이력으로 찾는다 — 빠지면 연체 많은 곳이 사라진다."""
-    df = _loans([{"브랜드명": "감마분식", "취급일": "2023-04-01", "연체여부": "Y"}])
+    """최신 연도에 없는 브랜드도 과거 이력으로 찾는다 — 빠지면 연체 많은 곳이 사라진다."""
+    df = _loans([{"브랜드명": "감마분식", "취급일": "2024-04-01", "연체여부": "Y"}])
     prep = D.prepare(df, D.detect_columns(df), HIST)
     assert prep.loans["brand_id"].tolist() == ["C"] and prep.loans["grade"].tolist() == ["FS3"]
 
 
 def test_unknown_and_unreadable_rows_are_listed_not_dropped_silently():
     df = _loans([
-        {"브랜드명": "없는브랜드", "취급일": "2023-06-01", "연체여부": "N"},
+        {"브랜드명": "없는브랜드", "취급일": "2024-06-01", "연체여부": "N"},
         {"브랜드명": "알파치킨", "취급일": "모름", "연체여부": "N"},
-        {"브랜드명": "알파치킨", "취급일": "2023-06-01", "연체여부": ""},
+        {"브랜드명": "알파치킨", "취급일": "2024-06-01", "연체여부": ""},
     ])
     prep = D.prepare(df, D.detect_columns(df), HIST)
     assert prep.loans.empty

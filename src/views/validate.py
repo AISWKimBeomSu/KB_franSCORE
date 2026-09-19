@@ -135,10 +135,10 @@ def render() -> None:
     _incremental(res)
     _state_table(res)
 
-    with st.expander(f"공시연도별 · 브랜드별 · 제외 목록 ({res['n_excluded']:,}행 제외)"):
-        t1, t2, t3 = st.tabs(["공시연도별", "브랜드별", "제외 목록"])
+    with st.expander(f"실적연도별 · 브랜드별 · 제외 목록 ({res['n_excluded']:,}행 제외)"):
+        t1, t2, t3 = st.tabs(["실적연도별", "브랜드별", "제외 목록"])
         with t1:
-            st.caption("등급 기준 공시연도마다 서열이 유지되는지 봅니다. 최근 취급분은 관찰 기간이 "
+            st.caption("등급 기준 실적연도마다 서열이 유지되는지 봅니다. 최근 취급분은 관찰 기간이 "
                        "짧아 연체율이 낮게 나올 수 있습니다.")
             st.dataframe(res["by_year"], hide_index=True, width="stretch")
         with t2:
@@ -151,8 +151,9 @@ def render() -> None:
 
     with st.expander("검증 설계 — 모형검증 담당자용"):
         st.markdown(
-            "- **시점 정합**: 대출을 `취급연도 − 1년` 공시 등급에 맞춥니다(공시는 전년도 실적). "
-            "모형 학습 연도(2018~2021년) 등급은 표본 내 점수라 쓰지 않습니다.\n"
+            "- **시점 정합**: 대출을 `취급연도 − 2년` 실적의 등급에 맞춥니다. t년 실적은 t+1년 "
+            "정보공개서로 공개되므로 취급 시점에 확실히 볼 수 있던 것은 2년 전 실적입니다. 모형 학습 "
+            "연도(2018~2021년 실적) 등급은 표본 내 점수라 쓰지 않습니다.\n"
             "- **생존 편향 방지**: 브랜드를 최신 목록이 아니라 과거에 평가된 브랜드 전체에서 찾습니다. "
             "그사이 사라진 브랜드가 빠지면 결과가 좋게 나오기 때문입니다.\n"
             "- **군집 부트스트랩**: 같은 브랜드 가맹점주의 연체는 함께 움직입니다(브랜드 내 상관 "
@@ -211,19 +212,21 @@ def _column_picker(df: pd.DataFrame) -> tuple[tuple | None, int, int]:
     date = d.selectbox("취급일 열 (권장)", opt, index=_idx(guess.date, opt))
     internal = e.selectbox("내부등급·CB점수 열 (권장)", opt, index=_idx(guess.internal, opt))
     amount = f.selectbox("대출금액 열 (선택)", opt, index=_idx(guess.amount, opt))
-    lag = g.radio("취급 당시 볼 수 있던 공시", ["전년도 공시", "같은 해 공시"], index=0,
-                  help="공시는 전년도 실적이 그해 중반에 공개됩니다. 보수적으로 '전년도 공시'를 권장합니다.")
+    lag = g.radio("취급 당시 볼 수 있던 등급", ["취급연도 − 2년 실적", "취급연도 − 1년 실적"], index=0,
+                  help="t년 실적은 t+1년 정보공개서로, 빨라야 그해 중반에 공개됩니다. 취급 시점에 확실히 "
+                       "볼 수 있던 것은 2년 전 실적입니다(권장). 하반기 취급이 대부분이고 공개 시점을 "
+                       "확인했다면 − 1년을 고르십시오.")
     dpd = 90
     if kind.startswith("연체일수"):
         dpd = int(st.number_input("연체로 볼 연체일수 기준 (일 이상)", min_value=1, max_value=365,
                                   value=90, step=30))
     if outcome == _NONE:
         st.error("연체 여부(또는 연체일수) 열을 골라 주십시오.")
-        return None, 1, dpd
+        return None, 2, dpd
     pick = lambda v: None if v == _NONE else v            # noqa: E731
     spec = (brand, outcome, "dpd" if kind.startswith("연체일수") else "flag", pick(date),
             pick(internal), pick(amount))
-    return spec, (1 if lag == "전년도 공시" else 0), dpd
+    return spec, (2 if lag.endswith("2년 실적") else 1), dpd
 
 
 def _card_html(title: str, status: tuple[str, str]) -> str:
@@ -320,7 +323,7 @@ def _grade_table(res: dict) -> None:
     a = res["auc"]
     st.caption(f"브랜드 위험만으로 대출 연체를 가려내는 힘(AUC) {a['est']:.3f} "
                f"[95% {a['lo']:.3f}~{a['hi']:.3f}] · 0.5면 무작위, 1이면 완벽. "
-               f"등급 기준: {'취급연도 − ' + str(res['lag_years']) + '년 공시' if res['pit'] else '최신 공시'}.")
+               f"등급 기준: {'취급연도 − ' + str(res['lag_years']) + '년 실적' if res['pit'] else '최신 실적'}.")
 
 
 def _incremental(res: dict) -> None:

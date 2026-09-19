@@ -236,7 +236,8 @@ def to_excel(res: pd.DataFrame, summary: dict, meta: dict) -> bytes:
         ws2.column_dimensions["C"].width = 16
 
         notes = [
-            f"기준: {meta.get('scored_year', '-')}년 공정거래위원회 가맹사업 공시 · 산출 {meta.get('generated', '-')}",
+            f"기준: {grading.year_label(meta.get('scored_year'))} (공정거래위원회 가맹사업 공시) · "
+            f"산출 {meta.get('generated', '-')}",
             "등급은 브랜드의 구조악화 확률로 매긴 것이며 차주의 부도확률(PD)이 아닙니다.",
             "'악화 발생'은 올해 공시에 이미 악화 사건이 나타난 브랜드입니다. 이 구간의 위험은 모형이 아니라 "
             "같은 사건수 과거 브랜드의 다음 해 재발동 실현율입니다.",

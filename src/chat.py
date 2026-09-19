@@ -600,7 +600,7 @@ def _fallback(facts: list[dict], evidence: list[dict], question: str,
     for f in facts:
         parts.append(f"### {f.get('brand_name')}")
         parts.append(f"- 등급 **{f['위험등급']}** · 브랜드 리스크 {f.get('브랜드_리스크')} "
-                     f"({f.get('평가연도')}년 공시 기준, 평가 대상 중 상위 {f.get('전체중_상위') or '-'})")
+                     f"({f.get('평가연도')}년 실적 기준, 평가 대상 중 상위 {f.get('전체중_상위') or '-'})")
         n = f.get("가맹점수")
         parts.append(f"- 업종 {f.get('업종')} · 가맹점 {f'{n:,}' if n else '-'}개"
                      + (f" · 가맹본부 {f['가맹본부']}" if f.get("가맹본부") else ""))

@@ -316,7 +316,7 @@ def _scope_caption() -> str:
     w = pd.to_numeric(d["n_stores"], errors="coerce").fillna(0)
     if not el.any() or w.sum() <= 0:
         return ""
-    return (f"평가 대상은 {yr}년 공시 외식 프랜차이즈 {len(d):,}개 브랜드 가운데 "
+    return (f"평가 대상은 {yr}년 실적 기준 외식 프랜차이즈 {len(d):,}개 브랜드 가운데 "
             f"{int(el.sum()):,}개입니다 — 가맹점 30개 이상·3년 연속 공시가 조건입니다. "
             f"브랜드 수로는 {100 * el.mean():.1f}% 지만 가맹점 수로 보면 "
             f"{100 * w[el].sum() / w.sum():.1f}% 로, 여신이 실제로 나가는 쪽은 대부분 "

@@ -14,7 +14,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src import theme
+from src import grading, theme
 from src.brand_search import ALIASES, normalize, search
 from src.views import common as C
 
@@ -62,7 +62,7 @@ def _list_screen(df: pd.DataFrame, meta: dict) -> None:
     yr = meta.get("scored_year", "-")
     theme.page_header(
         "FRANSCORE",
-        f"{yr}년 공시 기준 · {len(df):,}개 프랜차이즈 브랜드의 리스크를 평가했습니다. "
+        f"{grading.year_label(yr)} 기준 · {len(df):,}개 프랜차이즈 브랜드의 리스크를 평가했습니다. "
         "브랜드를 누르면 그 브랜드의 진단 근거를 전부 볼 수 있습니다.",
         eyebrow="브랜드 리스크")
 
