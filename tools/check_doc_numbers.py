@@ -642,6 +642,17 @@ def main() -> int:
     need("뉴스 추출 정확도 규칙(전체)", f"{le['all']['rules']['accuracy']:.3f}", "README")
     need("뉴스 정답셋 건수", f"{le['all']['rules']['n']}건", "README")
 
+    # 꼬리 기여 상위 표(TECH §25-3)는 오랫동안 대조 밖이라 낡아 있었다(결함 163) — 브랜드명까지 센다.
+    ul = pd.read_csv(OUT / "brand_ul_contribution.csv").sort_values("ul_share", ascending=False)
+    head("⑩-2 꼬리 기여 상위 (brand_ul_contribution.csv)")
+    top = ul.iloc[0]
+    need("UL 기여 1위 브랜드", str(top["brand_name"]), "TECH")
+    need("UL 기여 1위 비중", f"**{100 * top['ul_share']:.1f}%**", "TECH")
+    need("UL 기여 1위 쏠림배수", f"**{top['concentration_ratio']:.2f}배**", "TECH")
+    need("UL 기여 1위 여신비중", f"{100 * top['exposure_share']:.1f}%", "TECH")
+    need("UL 기여 2위 브랜드", str(ul.iloc[1]["brand_name"]), "TECH")
+    need("UL 상위 5개 합", f"UL 의 {100 * ul['ul_share'].head(5).sum():.1f}%", "TECH")
+
     # 월별 신호의 타당도는 README 헤드라인에도 오른다. 신호표를 새로 만들면(월 1회) 판정 분포는
     # 바뀌지만 이 값들은 validate_localdata.py 를 다시 돌릴 때만 바뀐다 — 그래서 분포는 문서에
     # 적지 않고, 타당도만 대조한다.
