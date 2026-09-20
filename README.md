@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/screenshots/brand-detail.png" alt="FranSCORE 브랜드 상세 화면 — 가맹점 3,325개 브랜드의 등급·브랜드 리스크·월별 인허가 신호·진단 소견·모형 요인(SHAP)" width="860"/>
+<img src="assets/screenshots/brand-detail.png" alt="FranSCORE 브랜드 상세 화면 — 브랜드 등급·브랜드 리스크·월별 인허가 신호·진단 소견·모형 요인(SHAP)" width="860"/>
 
 <sub>브랜드 하나를 열면 보이는 화면 — 등급과 그 근거, 모형이 본 요인, 공시 사이의 월별 폐점 신호까지</sub>
 
