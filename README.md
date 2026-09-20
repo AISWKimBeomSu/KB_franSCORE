@@ -1,6 +1,8 @@
 <div align="center">
 
-<img src="assets/screenshots/franscore-main.png" alt="FranSCORE — 프랜차이즈 브랜드 리스크 현황 화면" width="860"/>
+<img src="assets/screenshots/brand-detail.png" alt="FranSCORE 브랜드 상세 화면 — 가맹점 3,325개 브랜드의 등급·브랜드 리스크·월별 인허가 신호·진단 소견·모형 요인(SHAP)" width="860"/>
+
+<sub>브랜드 하나를 열면 보이는 화면 — 등급과 그 근거, 모형이 본 요인, 공시 사이의 월별 폐점 신호까지</sub>
 
 # 🏦 FranSCORE — 가맹점 여신에 '브랜드' 리스크 축을 더하다
 
@@ -88,7 +90,7 @@
 
 <table>
 <tr>
-<td width="50%"><img src="assets/screenshots/brand-detail.png" alt="브랜드 상세 화면"/><br/><b>브랜드 상세</b> — 등급·근거 소견·모형 요인(SHAP)·월별 폐점 신호·공시 추이·본부 재무. 공시 공백 보정 브랜드는 그 근거를 함께 표시</td>
+<td width="50%"><img src="assets/screenshots/franscore-main.png" alt="FRANSCORE 현황 화면"/><br/><b>FRANSCORE 현황</b> — 평가한 1,521개 브랜드의 등급 분포와 '지금 봐야 할 브랜드' 우선순위. 이름을 치면 통칭·동명까지 찾아 그 자리에서 상세로 들어갑니다</td>
 <td width="50%"><img src="assets/screenshots/batch-screening.png" alt="일괄 조회 화면"/><br/><b>일괄 조회</b> — 신청 목록 업로드 → 브랜드 자동 매칭(통칭·동명 구분) → 등급·중대 신호·확인 서류, 사업자번호가 있으면 국세청 휴·폐업까지 붙여 엑셀 반출</td>
 </tr>
 <tr>
