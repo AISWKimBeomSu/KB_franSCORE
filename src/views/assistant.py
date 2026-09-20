@@ -19,7 +19,7 @@ EXAMPLES = [
 
 def _examples() -> list[str]:
     """공개 배포는 실명 대신 가명으로 묻는 예시(src/public.py)."""
-    if not C.is_public():
+    if not C.masked():
         return EXAMPLES
     from src import public
     scores, _ = C.load_scores()
@@ -31,7 +31,7 @@ def render() -> None:
         "AI 상담",
         "프랜차이즈에 대해 자유롭게 물어보십시오. 공정거래위원회 공시·금융감독원 감사보고서"
         + ("에서 근거를 찾아 답합니다. 공개 데모는 브랜드를 가명으로 표시하고 기사 원문은 쓰지 않습니다."
-           if C.is_public() else "·뉴스에서 근거를 찾아 답합니다."),
+           if C.masked() else "·뉴스에서 근거를 찾아 답합니다."),
         eyebrow="상담")
 
     if _HISTORY not in st.session_state:

@@ -555,7 +555,7 @@ CAPABILITY_TEXT = (
 def capability_text(cfg: dict | None = None) -> str:
     """상담 안내문 — 공개 배포는 실명 예시 대신 가명 예시로 (src/public.py)."""
     from src import public
-    if not public.is_public():
+    if not public.masked():
         return CAPABILITY_TEXT
     from src.common import load_config
     sp = Path((cfg or load_config())["paths"]["outputs"]) / "scores_latest.csv"

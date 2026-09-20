@@ -254,7 +254,7 @@ def _artifact_dirs(base: Path) -> tuple[Path, Path, dict]:
     out = base / str(paths.get("outputs") or "outputs")
     proc = base / str(paths.get("processed") or "data/processed")
     from src import public
-    if public.is_public():                      # 공개 배포는 가명 사본에서 읽는다 (src/public.py)
+    if public.masked():                         # 가명 모드는 가명 사본에서 읽는다 (src/public.py)
         out, proc = public.data_dirs(out, proc)
     return out, proc, cfg
 

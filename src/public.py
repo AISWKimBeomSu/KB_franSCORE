@@ -1,14 +1,21 @@
-"""공개 데모 가명 처리 — 공개 배포에서는 브랜드 실명 옆에 등급을 싣지 않는다.
+"""가명 모드 — 브랜드 실명을 가려야 하는 자리에서 켜는 스위치.
 
-왜 필요한가
-    모형 사용 명세(docs/MODEL_USE_SPEC.md §3)는 "대외 공표·마케팅 자료에 브랜드 등급을 개별
-    명시"하는 것을 금지한다 — 실명 브랜드에 대한 신용훼손 위험 때문이다. 누구나 접속하는 공개
-    데모는 사실상 대외 공표다. 실명 소규모 브랜드 옆에 '주의 32.7%'를 띄우면 명세가 막으려던
-    바로 그 위험을 만든다. 그래서 공개 배포에서는 브랜드의 정체를 가린다. 로컬·사내 실행은
-    실명 그대로다(내부 참고용 — 명세가 허용하는 쓰임).
+기본은 실명이다
+    아는 브랜드를 검색해 그 등급과 근거를 보는 것이 이 도구의 핵심 동작이고, 수치의 출처인
+    공정위 공시·감사보고서도 실명으로 공개된 자료다. 그래서 연구·시연 공개는 실명으로 한다.
+
+그런데 실명을 못 쓰는 자리가 있다
+    모형 사용 명세(docs/MODEL_USE_SPEC.md §3)는 등급을 인용·재배포·마케팅에 쓰는 것을 금지하고,
+    기관 내부 배포에서는 대외 공표 자체가 막히는 경우가 있다. 브랜드 측 요청으로 특정 화면을
+    실명 없이 보여야 할 수도 있다. 그런 자리에서 이 모드를 켠다 — 화면 코드는 그대로 둔 채
+    읽는 산출물만 가명 사본으로 바뀐다.
+
+켜는 방법
+    · 화면 좌측 사이드바의 '가명 모드' 토글 (보는 사람 세션 단위)
+    · 환경변수 FRANSCORE_PUBLIC_DEMO=1 (배포 단위 기본값 — 기관 배포에서 쓴다)
 
 어떻게 — 화면이 읽는 산출물을 '가명 사본'으로 바꿔 끼운다
-    화면·참고의견서·상담은 모두 설정의 outputs/processed 경로에서 산출물을 읽는다. 공개 모드에서는
+    화면·참고의견서·상담은 모두 설정의 outputs/processed 경로에서 산출물을 읽는다. 가명 모드에서는
     그 경로를 이 모듈이 만든 가명 사본(임시 폴더)으로 바꾼다(src/common.load_config). 한 곳에서
     바꾸므로 화면마다 가리는 코드를 흩뿌리지 않는다. 사본에는 앱이 읽는 파일만 허용 목록으로
     담는다 — 목록 밖 파일(뉴스 원문, 검색 색인 등)은 사본에 아예 없다.
@@ -16,11 +23,11 @@
 무엇을 가리나
     브랜드명 → '{세부업종} {번호}'(예: '치킨 017') · 브랜드 ID → 'P' + 번호 · 가맹본부 법인명 →
     '가맹본부 {번호}' · 관리번호·DART 고유번호·접수번호 → 지움 · 소견 문장 속 브랜드명·법인명·검색어 →
-    가명 · 뉴스 사건·검색 색인·로고 → 공개 모드에서 쓰지 않음.
+    가명 · 뉴스 사건·검색 색인·로고 → 가명 모드에서 쓰지 않음.
 
 한계 — 숨기지 않는다
     숫자(가맹점 수·매출·재무)는 그대로다. 공정위 자료와 대조하면 큰 브랜드는 다시 알아볼 수 있다.
-    이 처리는 재식별이 불가능한 익명화가 아니라, 명세가 금지한 **실명 등급의 공표를 하지 않는 것**이
+    이 처리는 재식별이 불가능한 익명화가 아니라, **실명과 등급을 같은 화면에 싣지 않는 것**이
     목적이다. 누출 여부는 tests/test_public.py 가 사본 전체를 실명 목록으로 훑어 확인한다.
 """
 from __future__ import annotations
@@ -30,6 +37,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import tempfile
 import threading
 from pathlib import Path
@@ -38,6 +46,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 ENV = "FRANSCORE_PUBLIC_DEMO"
+SESSION_KEY = "mask_brands"      # 사이드바 토글이 쓰는 세션 키 (src/app.py)
 DIR_ENV = "FRANSCORE_PUBLIC_DIR"          # 사본 위치를 정할 때(테스트) — 기본은 임시 폴더
 _SALT = "franscore-public-v1"
 _LOCK = threading.Lock()
@@ -63,14 +72,26 @@ _TEXT_COLS = ("title", "detail", "source", "headline", "headline_detail", "evide
 _EVIDENCE_DROP = ("rcept_no", "corp_code", "reg_no", "brno", "crno", "url", "source_url", "keyword", "term")
 
 
-def is_public() -> bool:
-    """공개 배포인가 — FRANSCORE_PUBLIC_DEMO 가 우선, 없으면 Streamlit Community Cloud 경로로 판단."""
-    flag = os.getenv(ENV, "").strip().lower()
-    if flag in ("1", "true", "yes"):
-        return True
-    if flag in ("0", "false", "no"):
-        return False
-    return str(ROOT).startswith("/mount/src")
+def env_default() -> bool:
+    """배포 단위 기본값 — FRANSCORE_PUBLIC_DEMO. 값이 없으면 실명(꺼짐)."""
+    return os.getenv(ENV, "").strip().lower() in ("1", "true", "yes")
+
+
+def masked() -> bool:
+    """지금 브랜드를 가명으로 보여 주는 중인가.
+
+    화면 토글(세션)이 있으면 그것이, 없으면 환경변수가 정한다. 배치·도구처럼 화면 밖에서
+    부르면 세션이 없으므로 환경변수만 본다.
+    """
+    if "streamlit" in sys.modules:
+        try:
+            import streamlit as st
+            v = st.session_state.get(SESSION_KEY)
+            if v is not None:
+                return bool(v)
+        except Exception:               # 스크립트 실행 밖에서는 세션에 접근할 수 없다
+            pass
+    return env_default()
 
 
 def _rank(key: str) -> str:

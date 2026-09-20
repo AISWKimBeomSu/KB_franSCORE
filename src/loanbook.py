@@ -975,7 +975,7 @@ def template_bytes(scores: pd.DataFrame | None = None, cfg: dict | None = None) 
         cfg = load_config()
     rows = []
     from src import public
-    if public.is_public() and scores is not None:
+    if public.masked() and scores is not None:
         # 공개 배포는 실명 예시를 쓰지 않는다(모형 사용 명세 §3 · src/public.py) — 가명 브랜드에
         # 같은 금액·담보 구성을 입힌다. 통칭·동명·오타 예시는 실명에서만 성립해 뺀다.
         base = [r for r in _TEMPLATE_ROWS if r[6] == "정확 일치"]

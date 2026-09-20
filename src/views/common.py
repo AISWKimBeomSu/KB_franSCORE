@@ -303,17 +303,18 @@ def _logo_data_uri(brand_name: str, m: float) -> str:
         return ""
 
 
-def is_public() -> bool:
-    from src.public import is_public as _p
-    return _p()
+def masked() -> bool:
+    """가명 모드로 보는 중인가 (src/public.py). 기본은 실명."""
+    from src.public import masked as _m
+    return _m()
 
 
 def logo_url(brand_name: str) -> str:
     """브랜드 로고를 화면에 바로 넣을 수 있는 형태로. 없으면 빈 문자열.
 
-    공개 배포에서는 쓰지 않는다 — 로고는 이름보다 먼저 브랜드를 알아보게 한다(src/public.py).
+    가명 모드에서는 쓰지 않는다 — 로고는 이름보다 먼저 브랜드를 알아보게 한다(src/public.py).
     """
-    if is_public():
+    if masked():
         return ""
     from src.naver import LOGO_DIR
     d = Path(cfg()["_root"]) / LOGO_DIR

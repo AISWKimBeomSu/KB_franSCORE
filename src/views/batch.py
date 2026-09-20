@@ -26,7 +26,7 @@ def _biz_status(values: tuple) -> pd.DataFrame:
 
 def _template() -> bytes:
     """예시 양식 — 공개 배포는 가명 예시(실명 등급을 공표하지 않는다 · src/public.py)."""
-    if not C.is_public():
+    if not C.masked():
         return batch.template_bytes()
     from src import public
     scores, _ = C.load_scores()

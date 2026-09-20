@@ -182,14 +182,20 @@ def load_config(path: str | Path | None = None) -> dict:
         p.mkdir(parents=True, exist_ok=True)
         cfg["paths"][key] = p
     if path is None:
-        # 공개 배포: 화면·문서·상담이 읽는 산출물을 가명 사본으로 바꿔 끼운다 (src/public.py).
-        # 모형 사용 명세 §3 — 실명 브랜드 등급의 대외 공표 금지. 로컬·사내 실행은 실명 그대로다.
+        # 가명 모드: 화면·문서·상담이 읽는 산출물을 가명 사본으로 바꿔 끼운다 (src/public.py).
+        # 기본은 실명이고, 사이드바 토글이나 FRANSCORE_PUBLIC_DEMO=1 로 켠다.
         from src import public
-        if public.is_public():
+        if public.masked():
             cfg["paths"]["outputs"], cfg["paths"]["processed"] = public.data_dirs(
                 cfg["paths"]["outputs"], cfg["paths"]["processed"])
         _CFG_CACHE = cfg
     return cfg
+
+
+def reset_config_cache() -> None:
+    """load_config 캐시를 비운다 — 가명 모드를 켜고 끄면 읽는 산출물 경로가 바뀐다."""
+    global _CFG_CACHE
+    _CFG_CACHE = None
 
 
 def get_logger(name: str) -> logging.Logger:

@@ -92,7 +92,7 @@ def _explore(base: pd.DataFrame) -> None:
                                 placeholder="전체")
     min_n = c4.number_input("최소 가맹점 수", min_value=0, value=0, step=10)
     d1, d2, d3 = st.columns([2.2, 1, 1.2])
-    q = d1.text_input("브랜드명 포함", placeholder="예: 치킨, 커피" + ("" if C.is_public() else ", 메가"))
+    q = d1.text_input("브랜드명 포함", placeholder="예: 치킨, 커피" + ("" if C.masked() else ", 메가"))
     only_crit = d2.checkbox("중대 신호만", value=False)
     only_ld = d3.checkbox("월별 폐점 악화만", value=False,
                           help="지자체 인허가로 본 최근 3개월 폐업이 전년 같은 때보다 유의하게 많은 브랜드")
@@ -174,7 +174,7 @@ def _compare(base: pd.DataFrame) -> None:
     label = {b: f"{n} ({i} · {int(s):,}개)" for b, n, i, s in
              zip(sized["brand_id"], sized["brand_name"], sized["industry_mid"], sized["n_sort"], strict=True)}
     defaults = list(sized["brand_id"].head(2))
-    if C.is_public():          # 최상위 규모는 가맹점 수만으로 실명이 짐작된다 — 중간 규모 같은 업종 한 쌍
+    if C.masked():             # 최상위 규모는 가맹점 수만으로 실명이 짐작된다 — 중간 규모 같은 업종 한 쌍
         pair = public.same_industry_pair_rows(base)["brand_id"].astype(str)
         defaults = [b for b in pair if b in label] or defaults
     picks = st.multiselect(f"비교할 브랜드 (최대 {_MAX_COMPARE}개)", list(label), default=defaults,

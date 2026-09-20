@@ -88,8 +88,8 @@ def _search_box(df: pd.DataFrame) -> None:
     """자동완성 검색. 고르면 곧바로 상세로 들어간다."""
     q = st.selectbox(
         "브랜드 검색", options=_search_options(df), index=None,
-        placeholder=("가명(예: 치킨 017)이나 업종(커피·치킨)으로 찾으세요 — 공개 데모는 브랜드를 가명으로 표시합니다"
-                     if C.is_public() else "브랜드 이름을 입력하세요 — 한 글자만 쳐도 후보가 나옵니다"),
+        placeholder=("가명(예: 치킨 017)이나 업종(커피·치킨)으로 찾으세요 — 가명 모드가 켜져 있습니다"
+                     if C.masked() else "브랜드 이름을 입력하세요 — 한 글자만 쳐도 후보가 나옵니다"),
         accept_new_options=True, label_visibility="collapsed", key="fs_query")
     if not q or not str(q).strip():
         return
@@ -142,10 +142,10 @@ def _clean_option(q: str) -> str:
 
 def _not_found(q: str, near: list[str]) -> None:
     st.warning(f"'{q}' 로 평가된 브랜드를 찾지 못했습니다.")
-    if C.is_public():
-        st.info("**공개 데모는 브랜드를 가명으로 표시합니다** — 모형 사용 명세 §3(실명 브랜드 등급의 대외 "
-                "공표 금지)을 지키기 위해서입니다. 실명으로는 찾을 수 없으니 가명(예: 치킨 017)이나 "
-                "업종명(커피·치킨)으로 찾으십시오. 실명 조회는 로컬 실행에서 됩니다.")
+    if C.masked():
+        st.info("**가명 모드가 켜져 있습니다** — 브랜드가 가명(예: 치킨 017)으로 표시되므로 실명으로는 "
+                "찾을 수 없습니다. 업종명(커피·치킨)이나 가명으로 찾으시거나, 사이드바에서 가명 모드를 "
+                "끄고 다시 검색하십시오.")
         return
     if near:
         st.caption("혹시 이것을 찾으셨나요? " + " · ".join(near))

@@ -74,19 +74,31 @@ MENU = {
     "서비스 소개": ("about", "무엇을 어떻게 평가하는가"),
 }
 
-DISCLAIMER = ("본 서비스의 지표는 2선 리스크 관리 참고용이며 자동 여신 결정에 "
-              "사용되지 않습니다.")
-# 공개 배포(누구나 접속)에서만 덧붙이는 고지. 모형 사용 명세(MODEL_USE_SPEC §3)는 실명 브랜드
-# 등급의 대외 공표를 금지한다 — 공개 데모는 방법론 시연이지 브랜드 평가의 공표가 아니라는 점을
-# 화면에서 분명히 한다.
-PUBLIC_NOTE = ("공개 데모 — 모형 사용 명세 §3(실명 브랜드 등급의 대외 공표 금지)에 따라 브랜드를 "
-               "가명(예: 치킨 017)으로 표시합니다. 수치는 실제 공시 그대로입니다. KB국민은행의 공식 "
-               "서비스가 아닌 개인 연구 프로젝트이며, 등급을 인용·배포하지 마십시오.")
+DISCLAIMER = ("본 서비스의 지표는 2선 리스크 관리 참고용이며 자동 여신 결정에 사용되지 않습니다. "
+              "KB국민은행의 공식 서비스가 아닌 개인 연구 프로젝트이고 신용평가가 아니므로, 등급을 "
+              "인용·재배포하지 마십시오.")
+# 가명 모드가 켜져 있을 때만 덧붙이는 안내 — 지금 보는 이름이 실명이 아니라는 사실을 밝힌다.
+MASK_NOTE = ("가명 모드 — 브랜드·가맹본부 이름을 가명(예: 치킨 017)으로 바꿔 표시합니다. 수치는 "
+             "실제 공시 그대로입니다. 모형 사용 명세 §3(등급의 인용·재배포 금지)을 지켜야 하는 "
+             "자리에서 켜는 모드입니다.")
 
 
-def _is_public_demo() -> bool:
-    from src.public import is_public
-    return is_public()
+def _masked() -> bool:
+    from src.public import masked
+    return masked()
+
+
+def _on_mask_change() -> None:
+    """가명 모드를 바꾸면 설정·화면 캐시를 비우고 보던 브랜드를 놓는다.
+
+    두 모드는 서로 다른 산출물 경로를 읽고 브랜드 ID 체계도 다르다(BRD_… ↔ P…).
+    보던 브랜드를 그대로 들고 넘어가면 반대쪽 모드에는 없는 ID 라 빈 화면이 된다.
+    """
+    from src.common import reset_config_cache
+    reset_config_cache()
+    st.cache_data.clear()
+    st.session_state["fs_selected"] = None
+    st.session_state.pop("_linked", None)
 
 
 _NAV = "nav_view"
@@ -104,7 +116,7 @@ def _year_text(year) -> str:
 
 def _sidebar() -> str:
     # 공개 배포에서는 은행 로고처럼 읽히는 표식을 쓰지 않는다 — 공식 서비스로 오인되지 않게
-    theme.sidebar_brand("FranSCORE", "프랜차이즈 여신 리스크", mark="FS" if _is_public_demo() else "KB")
+    theme.sidebar_brand("FranSCORE", "프랜차이즈 여신 리스크", mark="FS" if _masked() else "KB")
     theme.sidebar_label("메뉴")
 
     # ⚠️ 라디오가 아니라 버튼을 쓴다. Streamlit 라디오는 **이미 선택된 항목을 다시
@@ -141,8 +153,14 @@ def _sidebar() -> str:
     # 명도대비 2.78 로 사실상 안 읽히게 두었는데, 안 읽히는 고지는 고지가 아니다.
     st.sidebar.markdown(f"<div class='kb-navnote'>{DISCLAIMER}</div>",
                         unsafe_allow_html=True)
-    if _is_public_demo():
-        st.sidebar.markdown(f"<div class='kb-navnote'>{PUBLIC_NOTE}</div>", unsafe_allow_html=True)
+    # 가명 모드는 기능이다 — 대외 공표가 막힌 자리에서 켠다. 기본은 실명(src/public.py).
+    from src import public
+    st.sidebar.toggle(
+        "가명 모드", value=public.env_default(), key=public.SESSION_KEY, on_change=_on_mask_change,
+        help="브랜드·가맹본부 이름을 가명으로 바꿔 보여 줍니다. 수치는 실제 공시 그대로입니다. "
+             "등급을 실명으로 내보낼 수 없는 자리(인용·재배포용 자료, 기관 내부 배포)에서 켭니다.")
+    if _masked():
+        st.sidebar.markdown(f"<div class='kb-navnote'>{MASK_NOTE}</div>", unsafe_allow_html=True)
     return view
 
 

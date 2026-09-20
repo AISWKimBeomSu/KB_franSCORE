@@ -136,6 +136,46 @@ def test_mirror_contains_no_real_ids_names_or_companies(tmp_path):
 
 
 @pytest.mark.skipif(not (PROC / "panel_full.parquet").exists(), reason="산출물 없음")
+def test_mask_toggle_switches_names_in_place(tmp_path):
+    """가명은 기본값이 아니라 기능이다 — 사이드바 토글 하나로 실명 ↔ 가명이 오간다.
+
+    (설정 캐시가 다른 테스트에 섞이지 않게 별도 프로세스에서 돌린다.)
+    """
+    script = textwrap.dedent(f"""
+        import sys
+        sys.path.insert(0, {str(ROOT)!r})
+        from streamlit.testing.v1 import AppTest
+
+        def texts(at):
+            return "\\n".join(str(m.value) for m in at.markdown)
+
+        at = AppTest.from_file({str(ROOT / "src" / "app.py")!r}, default_timeout=180)
+        at.query_params["brand"] = "BRD_20090100502"            # 빽다방
+        at.run()
+        assert not at.exception, [e.message for e in at.exception]
+        assert "빽다방" in texts(at), "기본은 실명이어야 한다"
+        t = next(x for x in at.toggle if x.label == "가명 모드")
+        assert t.value is False, "가명 모드 기본값은 꺼짐이어야 한다"
+
+        t.set_value(True).run()                                  # 켜면 가명
+        assert not at.exception, [e.message for e in at.exception]
+        assert "빽다방" not in texts(at) and "가명 모드" in texts(at)
+
+        next(x for x in at.toggle if x.label == "가명 모드").set_value(False).run()
+        assert not at.exception, [e.message for e in at.exception]
+        at.query_params["brand"] = "BRD_20090100502"             # 링크를 다시 타고 들어간다
+        at.run()
+        assert "빽다방" in texts(at), "끄면 실명으로 돌아와야 한다"
+        print("ok")
+    """)
+    env = {k: v for k, v in os.environ.items() if k != "FRANSCORE_PUBLIC_DEMO"}
+    env.update({"FRANSCORE_PUBLIC_DIR": str(tmp_path), "FRANSCORE_QUEUE_STORE": "session"})
+    r = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, timeout=900,
+                       cwd=str(ROOT))
+    assert r.returncode == 0 and "ok" in r.stdout, (r.stdout[-1500:], r.stderr[-3000:])
+
+
+@pytest.mark.skipif(not (PROC / "panel_full.parquet").exists(), reason="산출물 없음")
 def test_public_app_screens_show_no_real_brand_names(tmp_path):
     """공개 모드로 앱을 띄워 전 화면·예시 실행 결과를 훑는다 (별도 프로세스 — 설정 캐시가 섞이지 않게)."""
     script = textwrap.dedent(f"""

@@ -78,7 +78,7 @@ def render() -> None:
                     "은행 자료가 없으면 <b>가상 자료</b>로 화면을 먼저 보십시오. 결과는 시연용이며 "
                     "성능 근거가 아닙니다.</div>", unsafe_allow_html=True)
         names = None
-        if C.is_public():                       # 공개 배포는 실명 예시를 쓰지 않는다 (src/public.py)
+        if C.masked():                          # 가명 모드는 실명 예시를 쓰지 않는다 (src/public.py)
             from src import public
             scores, _ = C.load_scores()
             names = public.example_names(scores, 3) if scores is not None else None
