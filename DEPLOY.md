@@ -107,6 +107,8 @@ https://github.com/AISWKimBeomSu/KB_franSCORE/blob/main/src/app.py
 
 ### 1-2. API 키 등록 (선택)
 
+> 발급 절차·로컬 `.env` 설정·연결 확인 방법은 **[docs/API_KEYS.md](docs/API_KEYS.md)** 에 따로 정리했습니다.
+
 **키가 하나도 없어도 앱은 정상 동작합니다.** 새로 clone 한 상태에서 키 없이 8개
 화면이 전부 뜨는 것을 실측 확인했습니다(전 화면 스모크 테스트가 매 푸시 CI 에서 같은 확인을 합니다). 이미 수집해 둔 산출물(점수·진단 소견·
 로고 611건·검색수요 292건)이 저장소에 들어 있기 때문입니다.

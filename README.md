@@ -255,7 +255,7 @@ python -m src.localdata --csv data/raw/localdata/*.csv --scope 전국 --months 2
 | `DART_API_KEY` | opendart.fss.or.kr | 본부 재무 재수집·감사의견 원문 대조(`tools/verify_audit_opinions.py`) 불가 — 포함된 산출물은 그대로 사용 |
 | `DATA_GO_KR_KEY` | data.go.kr | 새 공시 수집, 국세청 휴·폐업 조회(데이터셋 15081808 활용신청 필요) 불가 — 저장된 스냅샷으로 전 화면 동작 |
 
-**키 넣는 곳** — 로컬은 저장소 루트의 `.env` 파일(`DART_API_KEY=...` 한 줄씩, `.gitignore` 에 들어 있어 커밋되지 않음), Streamlit Cloud 는 앱 **Settings → Secrets** 에 `DART_API_KEY = "..."` 형식으로 넣습니다. 우선순위는 환경변수 > `.env` > Secrets 입니다.
+**키 넣는 곳** — 로컬은 저장소 루트의 `.env` 파일(`DART_API_KEY=...` 한 줄씩, `.gitignore` 에 들어 있어 커밋되지 않음), Streamlit Cloud 는 앱 **Settings → Secrets** 에 `DART_API_KEY = "..."` 형식으로 넣습니다. 우선순위는 환경변수 > `.env` > Secrets 입니다. 발급부터 연결 확인까지는 → **[docs/API_KEYS.md](docs/API_KEYS.md)**
 
 배포는 [DEPLOY.md](DEPLOY.md) — Streamlit Community Cloud(Python 3.13 지정)·사내망 이식 절차.
 </details>
@@ -298,6 +298,7 @@ KB_franSCORE/
 | [docs/METHODOLOGY.md](docs/METHODOLOGY.md) | 방법론 공개서 |
 | [docs/MODEL_USE_SPEC.md](docs/MODEL_USE_SPEC.md) | 모형 사용 범위·금지 용도 |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | 운영·거버넌스 설계 (은행 실여신 연결 인터페이스 포함) |
+| [docs/API_KEYS.md](docs/API_KEYS.md) | API 키 등록 매뉴얼 — 어디서 받아, 어디에 넣고, 어떻게 확인하는가 |
 | [docs/LEAKAGE_CHECKLIST.md](docs/LEAKAGE_CHECKLIST.md) | 시점 누출 점검표 |
 
 ---
